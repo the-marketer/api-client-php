@@ -48,4 +48,4 @@ Utilities:
 
 - [`Client` utilities](./credentials-utilities.md)
 - [Errors & troubleshooting](./errors.md)
-- [Claude Skill](./claude-skill.md) — official Claude skill for AI-assisted integration with this package
+- [Claude Skill](./claude-skill.md) — official Claude skill (PHP) for AI-assisted integration with this package; a separate skill exists for Node.js projects
