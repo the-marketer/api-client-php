@@ -1,10 +1,14 @@
 ---
-title: Claude Skill (AI assistant)
+title: Claude Skill (PHP - AI assistant)
 ---
 
-The official **Claude skill** for `themarketer/api-client` teaches Claude how to use this package correctly: module APIs, payload shapes, REST vs tracking gateways, Laravel wiring, and exception handling. It reduces guesswork when you integrate or debug in Claude **Code**, **Claude Desktop**, or **Claude** on the web.
+The official **Claude skill** for the PHP package — `themarketer/api-client-php` — teaches Claude how to use this package correctly: module APIs, payload shapes, REST vs tracking gateways, Laravel wiring, and exception handling. It reduces guesswork when you integrate or debug in Claude **Code**, **Claude Desktop**, or **Claude** on the web.
 
 Maintained in GitHub: [the-marketer/claude-docs-skill](https://github.com/the-marketer/claude-docs-skill).
+
+:::tip Using Node.js instead of PHP?
+This page covers the **PHP** skill. If you work with the Node.js package, there is a separate skill — `@themarketer/api-client-node` — published in the **same repository** ([the-marketer/claude-docs-skill](https://github.com/the-marketer/claude-docs-skill)). Install that one instead for Node projects.
+:::
 
 ## What the skill helps with
 
@@ -26,15 +30,15 @@ From a Claude Code session:
 
 ```text
 /plugin marketplace add the-marketer/claude-docs-skill
-/plugin install themarketer-api-client@themarketer-api-client
+/plugin install themarketer-api-client-php@themarketer-api-client
 /reload-plugins
 ```
 
-Confirm it appears when you ask what skills are available (`themarketer-api-client`). The skill may be addressed as `themarketer-api-client:themarketer-api-client` (plugin name + skill name); you typically do not need to type a slash command—Claude loads it when the topic matches.
+Confirm it appears when you ask what skills are available (`themarketer-api-client-php`). The skill may be addressed as `themarketer-api-client-php:themarketer-api-client-php` (plugin name + skill name); you typically do not need to type a slash command—Claude loads it when the topic matches.
 
 ## Install: Claude Desktop / Claude web
 
-1. Download **`themarketer-api-client.skill`** from the [latest GitHub Release](https://github.com/the-marketer/claude-docs-skill/releases/latest).
+1. Download **`themarketer-api-client-php.skill`** from the [latest GitHub Release](https://github.com/the-marketer/claude-docs-skill/releases/latest).
 2. In Claude: **Customize → Skills → + → Create skill**.
 3. Upload the `.skill` file and enable it.
 4. Ensure **code execution** is allowed where your account/org requires it (Settings → Capabilities, or org-level Skills settings for Team/Enterprise).
@@ -46,7 +50,7 @@ Confirm it appears when you ask what skills are available (`themarketer-api-clie
 ```bash
 mkdir -p ~/.claude/skills
 git clone https://github.com/the-marketer/claude-docs-skill /tmp/tm-skill
-cp -r /tmp/tm-skill/skills/themarketer-api-client ~/.claude/skills/
+cp -r /tmp/tm-skill/skills/themarketer-api-client-php ~/.claude/skills/
 rm -rf /tmp/tm-skill
 ```
 
@@ -56,7 +60,7 @@ rm -rf /tmp/tm-skill
 cd /path/to/your/project
 mkdir -p .claude/skills
 git clone https://github.com/the-marketer/claude-docs-skill /tmp/tm-skill
-cp -r /tmp/tm-skill/skills/themarketer-api-client .claude/skills/
+cp -r /tmp/tm-skill/skills/themarketer-api-client-php .claude/skills/
 rm -rf /tmp/tm-skill
 ```
 
@@ -76,4 +80,4 @@ You do not always need to mention the package name explicitly; related wording a
 
 ## Contributing and versioning
 
-Skill content lives under `skills/themarketer-api-client/` in the repository. The skill project follows SemVer; suggest improvements via pull requests on [the-marketer/claude-docs-skill](https://github.com/the-marketer/claude-docs-skill).
+The PHP skill content lives under `skills/themarketer-api-client-php/` in the repository (the Node.js skill lives alongside it under `skills/themarketer-api-client-node/`). The skill project follows SemVer; suggest improvements via pull requests on [the-marketer/claude-docs-skill](https://github.com/the-marketer/claude-docs-skill).
