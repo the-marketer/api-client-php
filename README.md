@@ -1,18 +1,18 @@
 # The Marketer API Client (PHP)
 
-Client PHP pentru API-ul **The Marketer**. Trimite cereri HTTP prin **Guzzle** (clasa internă `ApiGateway`) și validează payload-urile cu **Symfony Validator** (DTO-uri `AbstractPayload` / `Data` din `TheMarketer\ApiClient\Common`).
+PHP client for the **The Marketer** API. It sends HTTP requests via **Guzzle** (the internal `ApiGateway` class) and validates payloads with **Symfony Validator** (the `AbstractPayload` / `Data` DTOs from `TheMarketer\ApiClient\Common`).
 
-## Documentatie pentru clienti
+## Client documentation
 
-Pentru o varianta structurata, usor de parcurs:
+For a structured, easy-to-follow version:
 
-- [API Client Docs](https://the-marketer.github.io/api-client/docs/intro)
+- [API Client Docs](https://the-marketer.github.io/api-client-php/docs/intro)
 
 ### Docusaurus site (GitHub Pages)
 
-Documentatia este pregatita si ca site Docusaurus in folderul `website/`.
+The documentation is also available as a Docusaurus site in the `website/` folder.
 
-Rulare locala:
+Run locally:
 
 ```bash
 cd website
@@ -20,27 +20,27 @@ npm install
 npm run start
 ```
 
-Deploy pe GitHub Pages este configurat prin workflow-ul:
+Deployment to GitHub Pages is configured through the workflow:
 
 - `.github/workflows/deploy-docs.yml`
 
-## Cerințe (requirements)
+## Requirements
 
-| Cerință | Versiune / notă |
+| Requirement | Version / note |
 |--------|------------------|
 | **PHP** | `^8.1` |
-| **Composer** | pentru instalarea dependențelor |
-| **ext-mbstring** | obligatoriu |
-| **Dependențe principale** | `guzzlehttp/guzzle` ^7, `symfony/validator` ^7, `symfony/expression-language` ^8 |
-| **Dezvoltare / teste** | `phpunit` ^10, `orchestra/testbench` ^8 (pentru suite-ul de teste) |
+| **Composer** | for installing dependencies |
+| **ext-mbstring** | required |
+| **Main dependencies** | `guzzlehttp/guzzle` ^7, `symfony/validator` ^7, `symfony/expression-language` ^8 |
+| **Development / tests** | `phpunit` ^10, `orchestra/testbench` ^8 (for the test suite) |
 
-Instalare în proiect:
+Install in your project:
 
 ```bash
 composer install
 ```
 
-Pachet public (exemplu):
+Public package (example):
 
 ```bash
 composer require themarketer/api-client
@@ -48,31 +48,31 @@ composer require themarketer/api-client
 
 ---
 
-## Arhitectură pe scurt
+## Architecture at a glance
 
-- **`TheMarketer\ApiClient\Client`** — punct unic de intrare: primește un **array** de configurare (`customerId`, `restKey`, opțional `trackingKey`, `restUrl`, `trackingUrl`, `maxRetryAttempts`), construiește **`Config`** + **`ApiContext`** și expune modulele API (`subscribers()`, `orders()`, `checkCredentials()`, etc.).
-- **`ApiContext`** — oferă gateway **REST** (`ApiGateway`) și **tracking** (`TrackingGateway`); ambele folosesc Guzzle (retry configurabil).
-- **`ApiGateway`** — pentru REST: query `k` (rest key) și `u` (customer id); JSON la POST unde cere DTO-ul; mapează erorile HTTP la excepții.
-- **`TrackingGateway`** — pentru host-ul de tracking: necesită `trackingKey` în config; alt set de parametri de autentificare în query.
-- **Clasele din `src/Api/`** — încapsulează endpoint-urile; validarea inputului se face în **`src/DTO/`**.
+- **`TheMarketer\ApiClient\Client`** — single entry point: takes a configuration **array** (`customerId`, `restKey`, optionally `trackingKey`, `restUrl`, `trackingUrl`, `maxRetryAttempts`), builds **`Config`** + **`ApiContext`** and exposes the API modules (`subscribers()`, `orders()`, `checkCredentials()`, etc.).
+- **`ApiContext`** — provides the **REST** gateway (`ApiGateway`) and the **tracking** gateway (`TrackingGateway`); both use Guzzle (configurable retry).
+- **`ApiGateway`** — for REST: `k` (rest key) and `u` (customer id) query params; JSON on POST where the DTO requires it; maps HTTP errors to exceptions.
+- **`TrackingGateway`** — for the tracking host: requires `trackingKey` in the config; a different set of authentication parameters in the query.
+- **The classes in `src/Api/`** — encapsulate the endpoints; input validation happens in **`src/DTO/`**.
 
-Baza URL pentru REST este `Config::baseRestUrl()` = `{restUrl}/api/{apiVersion}/` (implicit `apiVersion` = `v1`). URL-urile implicite sunt în `Client` / `Config` (`src/Common/Config.php`).
+The base URL for REST is `Config::baseRestUrl()` = `{restUrl}/api/{apiVersion}/` (default `apiVersion` = `v1`). The default URLs live in `Client` / `Config` (`src/Common/Config.php`).
 
 ---
 
-## Utilizare de bază
+## Basic usage
 
 ```php
 use TheMarketer\ApiClient\Client;
 
 $client = new Client([
-    'customerId' => 'ID_CONT_THE_MARKETER', // query `u` pe REST
-    'restKey' => 'CHEIA_REST',               // query `k` pe REST
-    'trackingKey' => 'CHEIE_TRACKING',     // opțional: pentru evenimente tracking
-    'maxRetryAttempts' => 1,                // opțional
+    'customerId' => 'THE_MARKETER_ACCOUNT_ID', // query `u` on REST
+    'restKey' => 'REST_KEY',                    // query `k` on REST
+    'trackingKey' => 'TRACKING_KEY',            // optional: for tracking events
+    'maxRetryAttempts' => 1,                     // optional
 ]);
 
-// Exemple de acces la API-uri grupate
+// Examples of accessing the grouped APIs
 $client->subscribers()->addSubscriber([/* … */]);
 $client->orders()->saveOrder([/* … */]);
 $client->transactionals()->sendEmail([/* … */]);
@@ -80,21 +80,21 @@ $client->transactionals()->sendEmail([/* … */]);
 
 ---
 
-## Credențiale și utilitare (direct pe `Client`)
+## Credentials and utilities (directly on `Client`)
 
-Aceste metode nu trec prin `subscribers()` / `orders()`; sunt delegate la **`CredentialsClient`** intern.
+These methods do not go through `subscribers()` / `orders()`; they are delegated to the internal **`CredentialsClient`**.
 
 ### `checkCredentials(string $trackingKey): bool`
 
-Verifică credențialele (tracking key în **body JSON** pe REST, vezi `CredentialsClient`). Pe **`Client`**, returnează **`true`** dacă răspunsul decodat este array gol `[]`, altfel **`false`**. Pentru JSON-ul brut ca `array`, folosește `CredentialsClient::checkCredentials()` cu același context.
+Checks the credentials (tracking key in the **JSON body** on REST, see `CredentialsClient`). On **`Client`**, it returns **`true`** if the decoded response is an empty array `[]`, otherwise **`false`**. For the raw JSON as an `array`, use `CredentialsClient::checkCredentials()` with the same context.
 
 ```php
-$ok = $client->checkCredentials('CHEIE_TRACKING');
+$ok = $client->checkCredentials('TRACKING_KEY');
 ```
 
 ### `checkApiCredentials(): bool`
 
-Pe **`Client`**, returnează **`bool`** (același criteriu: corp JSON → array gol = succes). Pentru răspuns decodat complet, vezi `CredentialsClient::checkApiCredentials()`.
+On **`Client`**, it returns a **`bool`** (same criterion: JSON body → empty array = success). For the full decoded response, see `CredentialsClient::checkApiCredentials()`.
 
 ```php
 $ok = $client->checkApiCredentials();
@@ -102,101 +102,101 @@ $ok = $client->checkApiCredentials();
 
 ### `getCosts()`, `getRealtimeVisitors()`, `getSmsCredit(): array`
 
-Răspuns JSON decodat.
+Decoded JSON response.
 
 ### `getReferralLink(?string $email = null): string`
 
-Returnează **conținutul brut** al răspunsului (nu JSON).
+Returns the **raw content** of the response (not JSON).
 
 ### `getDeliveryLogs(array $payload): array`
 
-`email` obligatoriu; opțional: `per_page`, `page`, `start`, `end`.
+`email` required; optional: `per_page`, `page`, `start`, `end`.
 
 ### `getEnteredAutomation(array $payload): array`
 
-`date` obligatoriu (`Y-m-d`); opțional `page`, `perPage`.
+`date` required (`Y-m-d`); optional `page`, `perPage`.
 
 ### `config(): Config`
 
-Acces la `customerId`, `restKey`, `baseRestUrl()`, `trackingKey()`, etc.
+Access to `customerId`, `restKey`, `baseRestUrl()`, `trackingKey()`, etc.
 
 ---
 
-## Module API (exemple)
+## API modules (examples)
 
-| Accesor pe `Client` | Rol |
+| Accessor on `Client` | Role |
 |---------------------|-----|
-| `subscribers()` | Abonați: status, add/remove, bulk, tag-uri, etc. |
-| `orders()` | Comenzi, feed URL, retail, statistici |
-| `transactionals()` | Email și SMS tranzacționale |
-| `products()` | CRUD / sync produse, categorii, branduri |
-| `campaigns()` | Listă, creare campanie, raport email, ultima campanie |
-| `loyalty()` | Puncte loialitate |
-| `coupons()` | Cupoane disponibile, salvare |
-| `reviews()` | Recenzii produse, merchant, setări Merchant Pro |
-| `mobilePush()` | Push mobil (token-uri iOS/Android) |
-| `events()` | Evenimente personalizate |
-| `reports()` | Rapoarte email/SMS/push/forms/audience |
+| `subscribers()` | Subscribers: status, add/remove, bulk, tags, etc. |
+| `orders()` | Orders, feed URL, retail, statistics |
+| `transactionals()` | Transactional email and SMS |
+| `products()` | Product CRUD / sync, categories, brands |
+| `campaigns()` | List, create campaign, email report, last campaign |
+| `loyalty()` | Loyalty points |
+| `coupons()` | Available coupons, saving |
+| `reviews()` | Product and merchant reviews, Merchant Pro settings |
+| `mobilePush()` | Mobile push (iOS/Android tokens) |
+| `events()` | Custom events |
+| `reports()` | Email/SMS/push/forms/audience reports |
 
-Detalii despre parametri: fișierele din `src/Api/*Api.php` și `src/DTO/**`. Testele din `tests/*ApiTest.php` arată exemple de payload-uri valide.
+Details about parameters: the files in `src/Api/*Api.php` and `src/DTO/**`. The tests in `tests/*ApiTest.php` show examples of valid payloads.
 
-### Campanii — note importante
+### Campaigns — important notes
 
-- **`list()`** folosește **POST** către `/campaigns/list`, cu body din `ListCampaign`.
-- **`create()`** cere structură imbricată validată de `CreateCampaign`; la **sender** folosește cheile **`name`**, **`sender`** (email), **`reply_to`** (nu `sender_name` / `sender_email`).
+- **`list()`** uses **POST** to `/campaigns/list`, with the body from `ListCampaign`.
+- **`create()`** requires a nested structure validated by `CreateCampaign`; for the **sender** it uses the keys **`name`**, **`sender`** (email), **`reply_to`** (not `sender_name` / `sender_email`).
 
-### Recenzii
+### Reviews
 
-- **`getProductReviews()`** returnează **string** (conținut răspuns, nu `array` decodat automat).
+- **`getProductReviews()`** returns a **string** (raw response content, not an automatically decoded `array`).
 
-### Rapoarte
+### Reports
 
-- Query-urile includ de obicei `start`, `end`, `type` (vezi enum-urile din `src/Enum/` și DTO-urile din `src/DTO/Reports/`).
+- Queries usually include `start`, `end`, `type` (see the enums in `src/Enum/` and the DTOs in `src/DTO/Reports/`).
 
 ---
 
-## Erori și excepții
+## Errors and exceptions
 
-**Înainte de request (validare locală)**
+**Before the request (local validation)**
 
-- **`TheMarketer\ApiClient\Exception\ValidationException`** — lipsă `customerId` / `restKey` în config sau mesaje din validarea Symfony pe DTO.
-- Lipsă argumente obligatorii la construirea DTO poate duce la **`ArgumentCountError`** sau **`TypeError`** înainte de rețea.
+- **`TheMarketer\ApiClient\Exception\ValidationException`** — missing `customerId` / `restKey` in the config, or messages from Symfony validation on the DTO.
+- Missing required arguments when building a DTO can lead to **`ArgumentCountError`** or **`TypeError`** before any network call.
 
-**După request** (`ApiGateway` mapează status HTTP)
+**After the request** (`ApiGateway` maps the HTTP status)
 
-| Status | Excepție |
+| Status | Exception |
 |--------|----------|
 | **401** | `UnauthorizedException` |
 | **404** | `CustomerNotFoundException` |
 | **405** | `MethodNotAllowedException` |
-| Alte erori | `ApiException` (folosește codul și mesajul din răspuns; mesajul e extras din JSON `message` când există) |
+| Other errors | `ApiException` (uses the code and message from the response; the message is extracted from the JSON `message` when present) |
 
-La răspuns de succes cu JSON invalid, metodele care decodă pot arunca **`JsonException`**. Pentru erori de rețea: **`GuzzleHttp\Exception\GuzzleException`**.
+On a successful response with invalid JSON, the methods that decode it can throw **`JsonException`**. For network errors: **`GuzzleHttp\Exception\GuzzleException`**.
 
 ---
 
-## Teste
+## Tests
 
 ```bash
 composer test
 ```
 
-Suite-ul folosește `ApiGateway` cu **Guzzle MockHandler** (fără apeluri reale la API). Pentru **`Client`** în teste cu mock HTTP, `context` este `readonly`; în practică se testează `CredentialsClient` și clasele `*Api` cu același stack — vezi `tests/CredentialsClientTest.php` și `tests/TestCase.php`.
+The suite uses `ApiGateway` with a **Guzzle MockHandler** (no real API calls). For **`Client`** in tests with an HTTP mock, `context` is `readonly`; in practice `CredentialsClient` and the `*Api` classes are tested with the same stack — see `tests/CredentialsClientTest.php` and `tests/TestCase.php`.
 
 ---
 
-## Script smoke (`smoke.php`)
+## Smoke script (`smoke.php`)
 
-Verificare rapidă cu **credențiale reale** (nu comita chei în repo):
+A quick check with **real credentials** (do not commit keys to the repo):
 
 ```bash
 php smoke.php
 ```
 
-Exemplul din repo apelează `checkCredentials($trackingKey)` — înlocuiește valorile cu cele din contul tău The Marketer.
+The example in the repo calls `checkCredentials($trackingKey)` — replace the values with the ones from your The Marketer account.
 
 ---
 
-## Licență
+## License
 
-MIT (vezi `composer.json`).
+MIT (see `composer.json`).

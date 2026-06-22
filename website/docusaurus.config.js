@@ -14,12 +14,12 @@ const config = {
   url: 'https://the-marketer.github.io',
   // Set the /<baseUrl>/ pathname under which your site is served
   // For GitHub pages deployment, it is often '/<projectName>/'
-  baseUrl: '/api-client/',
+  baseUrl: '/api-client-php/',
 
   // GitHub pages deployment config.
   // If you aren't using GitHub pages, you don't need these.
   organizationName: 'the-marketer',
-  projectName: 'api-client',
+  projectName: 'api-client-php',
 
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
@@ -40,7 +40,7 @@ const config = {
         docs: {
           sidebarPath: require.resolve('./sidebars.js'),
           editUrl:
-            'https://github.com/the-marketer/api-client/tree/main/website/',
+            'https://github.com/the-marketer/api-client-php/tree/main/website/',
         },
         blog: false,
         theme: {
@@ -68,7 +68,7 @@ const config = {
             label: 'Documentation',
           },
           {
-            href: 'https://github.com/the-marketer/api-client',
+            href: 'https://github.com/the-marketer/api-client-php',
             label: 'GitHub',
             position: 'right',
           },
