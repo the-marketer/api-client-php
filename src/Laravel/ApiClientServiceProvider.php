@@ -62,17 +62,18 @@ class ApiClientServiceProvider extends ServiceProvider
     private function registerTheMarketerMailerConfig(): void
     {
         $config = $this->app->make('config');
-        $mailers = (array) $config->get('mail.mailers', []);
+        $mailers = (array)$config->get('mail.mailers', []);
 
-        $defaults = [
+        // Read from mail config, not env(): env() returns null once config is cached.
+        $defaults = array_filter([
             'transport' => 'themarketer',
-            'from' => ['address' => env('MAIL_FROM_ADDRESS')],
-            'reply_to' => ['address' => env('MAIL_REPLY_TO_ADDRESS')],
-        ];
+            'from' => $config->get('mail.from'),
+            'reply_to' => $config->get('mail.reply_to'),
+        ], static fn($value): bool => $value !== null);
 
         if (array_key_exists('themarketer', $mailers)) {
             /** @var array<string, mixed> $existing */
-            $existing = (array) $mailers['themarketer'];
+            $existing = (array)$mailers['themarketer'];
             $mailers['themarketer'] = array_merge($defaults, $existing);
         } else {
             $mailers['themarketer'] = $defaults;

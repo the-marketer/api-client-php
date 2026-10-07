@@ -32,6 +32,9 @@ final class LaravelServiceProviderTest extends TestCase
             'trackingUrl' => 'https://tracking.example.test',
             'maxRetryAttempts' => 4,
         ]);
+
+        $app['config']->set('mail.from', ['address' => 'global-from@example.test', 'name' => 'Global']);
+        $app['config']->set('mail.reply_to', ['address' => 'global-reply@example.test', 'name' => null]);
     }
 
     /**
@@ -62,5 +65,39 @@ final class LaravelServiceProviderTest extends TestCase
 
         $transport = $mailManager->mailer('themarketer')->getSymfonyTransport();
         $this->assertInstanceOf(TheMarketerTransport::class, $transport);
+    }
+
+    public function testMailerDefaultsComeFromMailConfigNotEnv(): void
+    {
+        // With `php artisan config:cache`, env() returns null outside config files,
+        // so the mailer defaults must be read from the (cached) mail config.
+        $this->assertSame(
+            ['address' => 'global-from@example.test', 'name' => 'Global'],
+            $this->app['config']->get('mail.mailers.themarketer.from'),
+        );
+        $this->assertSame(
+            ['address' => 'global-reply@example.test', 'name' => null],
+            $this->app['config']->get('mail.mailers.themarketer.reply_to'),
+        );
+    }
+
+    public function testExistingMailerConfigOverridesDefaults(): void
+    {
+        $this->app['config']->set('mail.mailers.themarketer', [
+            'transport' => 'themarketer',
+            'from' => ['address' => 'custom@example.test'],
+        ]);
+
+        $provider = new ApiClientServiceProvider($this->app);
+        $provider->boot();
+
+        $this->assertSame(
+            ['address' => 'custom@example.test'],
+            $this->app['config']->get('mail.mailers.themarketer.from'),
+        );
+        $this->assertSame(
+            ['address' => 'global-reply@example.test', 'name' => null],
+            $this->app['config']->get('mail.mailers.themarketer.reply_to'),
+        );
     }
 }

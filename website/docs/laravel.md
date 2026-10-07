@@ -78,7 +78,16 @@ It sends emails through `transactionals()` from this package.
 The provider also merges a `themarketer` entry into `config('mail.mailers')` when the app boots, with:
 
 - `transport` => `themarketer`
-- Optional fallback sender/reply-to (when the message does not set them): `from` / `reply_to` from `MAIL_FROM_ADDRESS` and `MAIL_REPLY_TO_ADDRESS`
+- Optional fallback sender/reply-to (when the message does not set them): `from` / `reply_to` copied from the global `mail.from` and `mail.reply_to` config (works with `php artisan config:cache`)
+
+Laravel's default `config/mail.php` defines `from` (from `MAIL_FROM_ADDRESS` / `MAIL_FROM_NAME`) but not `reply_to`. To use a global reply-to, add it to `config/mail.php`:
+
+```php
+'reply_to' => [
+    'address' => env('MAIL_REPLY_TO_ADDRESS'),
+    'name' => env('MAIL_REPLY_TO_NAME'),
+],
+```
 
 If you already define `mail.mailers.themarketer` in `config/mail.php`, your values override these defaults for overlapping keys.
 
