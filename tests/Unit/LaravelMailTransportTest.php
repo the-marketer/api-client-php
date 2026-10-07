@@ -26,7 +26,7 @@ final class LaravelMailTransportTest extends TestCase
                     && $payload['reply_to'] === 'reply@example.com';
             }));
 
-        $client = $this->createMock(Client::class);
+        $client = $this->createStub(Client::class);
         $client->method('transactionals')->willReturn($api);
 
         $transport = new TheMarketerTransport($client);
@@ -60,7 +60,7 @@ final class LaravelMailTransportTest extends TestCase
                     && $second['subject'] === 'Notice';
             }));
 
-        $client = $this->createMock(Client::class);
+        $client = $this->createStub(Client::class);
         $client->method('transactionals')->willReturn($api);
 
         $transport = new TheMarketerTransport($client);
@@ -76,7 +76,7 @@ final class LaravelMailTransportTest extends TestCase
 
     public function testTransportStringIdentifierIsThemarketer(): void
     {
-        $client = $this->createMock(Client::class);
+        $client = $this->createStub(Client::class);
         $transport = new TheMarketerTransport($client);
         $this->assertSame('themarketer', (string) $transport);
     }

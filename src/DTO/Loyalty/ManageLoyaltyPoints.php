@@ -14,7 +14,7 @@ class ManageLoyaltyPoints extends AbstractPayload
         #[Assert\Email]
         public string $email,
         #[Assert\NotBlank]
-        #[Assert\Choice(['increase', 'decrease'])]
+        #[Assert\Choice(choices: ['increase', 'decrease'])]
         public string $action,
         #[Assert\NotBlank]
         #[Assert\Positive]
