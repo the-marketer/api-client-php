@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests;
 
+use GuzzleHttp\Client;
 use GuzzleHttp\Psr7\Response;
 use NotificationService\Sdk\Internal\EventsApi;
 use NotificationService\Sdk\Internal\OrdersApi;
@@ -194,4 +195,30 @@ final class ApiClientGapsTest extends TestCase
         $this->assertSame('Men|Shoes', $body['category']);
     }
 
+    public function testApiContextUsesTheInjectedHttpClient(): void
+    {
+        $seen = [];
+        $mock = new \GuzzleHttp\Handler\MockHandler([static function ($request) use (&$seen) {
+            $seen[] = (string) $request->getUri();
+
+            return new Response(200, [], '{}');
+        }]);
+        $context = new \TheMarketer\ApiClient\Common\ApiContext(
+            new \TheMarketer\ApiClient\Common\Config('c', 'k', 'https://api.example.test'),
+            0,
+            new Client(['handler' => $mock]),
+        );
+        $context->rest->get('/ping');
+
+        $this->assertCount(1, $seen);
+        $this->assertStringContainsString('api.example.test', $seen[0]);
+    }
+
+    public function testSubscriberNameIsSentAsIs(): void
+    {
+        $payload = \TheMarketer\ApiClient\DTO\Subscribers\SubscriberValidator::validateAndCreate(['email' => 'a@example.com', 'name' => 'Ana Maria Ionescu'])->toApiPayload();
+
+        $this->assertSame('Ana Maria Ionescu', $payload['name']);
+        $this->assertArrayNotHasKey('firstname', $payload);
+    }
 }

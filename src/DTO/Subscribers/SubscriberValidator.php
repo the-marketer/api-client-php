@@ -22,6 +22,7 @@ class SubscriberValidator extends AbstractPayload
         public ?string $birthday = null,
         public ?string $channels = null,
         public ?array $attributes = null,
+        public ?string $name = null,
     ) {}
 
     public function toApiPayload(): array
@@ -31,6 +32,7 @@ class SubscriberValidator extends AbstractPayload
             static::filterNonEmpty([
                 'firstname' => $this->firstname,
                 'lastname' => $this->lastname,
+                'name' => $this->name,
                 'add_tags' => $this->add_tags,
                 'phone' => $this->phone,
                 'city' => $this->city,
