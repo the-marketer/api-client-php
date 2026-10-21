@@ -102,10 +102,11 @@ class SaveOrder extends AbstractPayload
         $payload = $this->toArray();
         $optional = array_flip(['city', 'county', 'address', 'discount_code', 'order_status']);
 
-        $payload['products'] = array_map(
+        // A list, even when the caller's keys have gaps (a line dropped before sending).
+        $payload['products'] = array_values(array_map(
             static fn(SaveOrderProductLine $line): array => $line->toApiPayload(),
             $this->products,
-        );
+        ));
 
         return array_diff_key($payload, $optional, ['email_address' => 1, 'phone' => 1])
             + ['email_address' => $this->email_address ?? '', 'phone' => $this->phone ?? '']

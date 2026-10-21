@@ -135,6 +135,15 @@ final class ApiClientGapsTest extends TestCase
         $this->assertSame([['product_id' => 1, 'price' => 10.0, 'quantity' => 1]], $payload['products']);
     }
 
+    public function testOrderLinesWithGapsInTheirKeysGoAsAList(): void
+    {
+        $line = ['product_id' => 1, 'price' => 10, 'quantity' => 1];
+        $payload = SaveOrder::validateAndCreate($this->order(['products' => [0 => $line, 2 => $line]]))->toApiPayload();
+
+        $this->assertTrue(array_is_list($payload['products']));
+        $this->assertCount(2, $payload['products']);
+    }
+
     public function testEventsCarryReferrer(): void
     {
         [$api, $bucket] = $this->createApiWithMock(EventsApi::class, new Response(200, [], '{}'));
