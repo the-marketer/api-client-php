@@ -17,6 +17,8 @@ $client = new Client([
 $eventsApi = $client->events();
 ```
 
+Every tracking event accepts an optional `referrer` (`string`) next to `source`. `product_id` accepts an `int` or a `string`. `addToWishlist` / `removeFromWishlist` only need `product_id`; `quantity` and `variation` are optional. `viewCategory` needs `category` (the catalog path, levels joined with `|`). `genericPageView` takes the same fields as `viewHomepage`.
+
 ---
 
 ## `sendCustomApi`
@@ -112,7 +114,7 @@ Associate/set an email in the tracking flow (`SetEmailEvent`).
 - `email_address` (`string`, required, email valid)
 - `firstname` (`string`, required)
 - `lastname` (`string`, required)
-- `phone` (`string`, required)
+- `phone` (`?string`)
 - `url` (`string`, required, URL valid)
 - `http_user_agent` (`string`, required)
 - `remote_addr` (`string`, required)

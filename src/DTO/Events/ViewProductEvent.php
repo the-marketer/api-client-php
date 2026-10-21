@@ -17,8 +17,7 @@ class ViewProductEvent extends AbstractPayload
         #[Assert\Type('string')]
         public string $event,
         #[Assert\NotBlank]
-        #[Assert\Type('string')]
-        public string $product_id,
+        public int|string $product_id,
         #[Assert\NotBlank]
         #[Assert\Url]
         public string $url,
@@ -30,6 +29,8 @@ class ViewProductEvent extends AbstractPayload
         public string $remote_addr,
         #[Assert\Type('string')]
         public ?string $source = null,
+        #[Assert\Type('string')]
+        public ?string $referrer = null,
     ) {
     }
 
@@ -47,7 +48,7 @@ class ViewProductEvent extends AbstractPayload
                 'http_user_agent' => $this->http_user_agent,
                 'remote_addr' => $this->remote_addr,
             ],
-            self::filterNonEmpty(['source' => $this->source]),
+            self::filterNonEmpty(['source' => $this->source, 'referrer' => $this->referrer]),
         );
     }
 }

@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace TheMarketer\ApiClient\DTO\Events;
 
-use ReflectionMethod;
-use ReflectionParameter;
 use Symfony\Component\Validator\Constraints as Assert;
 use TheMarketer\ApiClient\Common\AbstractPayload;
 use TheMarketer\ApiClient\Common\PayloadArrayNormalizer;
@@ -24,9 +22,8 @@ class ProductLineEvent extends AbstractPayload
         #[Assert\NotBlank]
         #[Assert\Type('string')]
         public string $event,
-        #[Assert\Positive]
-        #[Assert\Type('integer')]
-        public int $product_id,
+        #[Assert\NotBlank]
+        public int|string $product_id,
         #[Assert\Positive]
         #[Assert\Type('integer')]
         public int $quantity,
@@ -43,6 +40,8 @@ class ProductLineEvent extends AbstractPayload
         public string $remote_addr,
         #[Assert\Type('string')]
         public ?string $source = null,
+        #[Assert\Type('string')]
+        public ?string $referrer = null,
     ) {
     }
 
@@ -56,16 +55,7 @@ class ProductLineEvent extends AbstractPayload
         }
         $data['variation'] = ProductLineVariation::validateAndCreate($variation);
 
-        $instance = new static(...array_intersect_key(
-            $data,
-            array_flip(array_map(
-                static fn(ReflectionParameter $p) => $p->getName(),
-                (new ReflectionMethod(static::class, '__construct'))->getParameters(),
-            )),
-        ));
-        $instance->validate();
-
-        return $instance;
+        return parent::validateAndCreate($data);
     }
 
     /**
@@ -84,7 +74,7 @@ class ProductLineEvent extends AbstractPayload
                 'url' => $this->url,
                 'remote_addr' => $this->remote_addr,
             ],
-            self::filterNonEmpty(['source' => $this->source]),
+            self::filterNonEmpty(['source' => $this->source, 'referrer' => $this->referrer]),
         );
     }
 }

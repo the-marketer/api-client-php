@@ -18,9 +18,8 @@ class SaveOrderProductLine extends AbstractPayload
         public float $price,
         #[Assert\Positive]
         public int $quantity,
-        #[Assert\NotBlank]
         #[Assert\Type('string')]
-        public string $variation_sku,
+        public ?string $variation_sku = null,
     ) {}
 
     public static function validateAndCreate(array $data): static
@@ -28,5 +27,11 @@ class SaveOrderProductLine extends AbstractPayload
         $data = PayloadArrayNormalizer::coerceNumericStrings($data, ['product_id', 'quantity'], ['price']);
 
         return parent::validateAndCreate($data);
+    }
+
+    /** `variation_sku` is sent when there is one (the platform does not read it; many variants have none). */
+    public function toApiPayload(): array
+    {
+        return self::filterNonEmpty($this->toArray());
     }
 }

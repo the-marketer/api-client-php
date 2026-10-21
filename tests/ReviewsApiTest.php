@@ -219,7 +219,7 @@ final class ReviewsApiTest extends TestCase
     {
         [$api] = $this->apiWithMockResponses();
 
-        $this->expectException(\ArgumentCountError::class);
+        $this->expectException(\TheMarketer\ApiClient\Exception\ValidationException::class);
 
         $api->createReview(['review_date' => '2025-01-01']);
     }

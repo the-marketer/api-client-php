@@ -6,6 +6,7 @@ namespace TheMarketer\ApiClient\DTO\Subscribers;
 
 use Symfony\Component\Validator\Constraints as Assert;
 use TheMarketer\ApiClient\Common\AbstractPayload;
+use TheMarketer\ApiClient\Exception\ValidationException;
 
 class AddSubscriberBulk extends AbstractPayload
 {
@@ -20,7 +21,9 @@ class AddSubscriberBulk extends AbstractPayload
     public static function validateAndCreate(array $data): static
     {
         $rows = array_map(
-            fn(array $item) => SubscriberValidator::validateAndCreate($item),
+            fn(mixed $item) => SubscriberValidator::validateAndCreate(
+                is_array($item) ? $item : throw new ValidationException('Each subscriber must be an array.'),
+            ),
             $data['subscribers'] ?? [],
         );
 

@@ -17,7 +17,11 @@ abstract class Data
             fn(ReflectionParameter $p) => $p->getName(),
             (new ReflectionMethod(static::class, '__construct'))->getParameters(),
         );
-        $instance = new static(...array_intersect_key($data, array_flip($params)));
+        try {
+            $instance = new static(...array_intersect_key($data, array_flip($params)));
+        } catch (\TypeError $e) {
+            throw new ValidationException($e->getMessage(), 400, $e);
+        }
         $instance->validate();
 
         return $instance;

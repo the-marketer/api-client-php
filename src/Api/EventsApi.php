@@ -9,13 +9,16 @@ use JsonException;
 use TheMarketer\ApiClient\Common\AbstractApi;
 use TheMarketer\ApiClient\DTO\Events\CustomEvent;
 use TheMarketer\ApiClient\DTO\Events\InitiateCheckoutEvent;
+use TheMarketer\ApiClient\DTO\Events\OrderEvent;
 use TheMarketer\ApiClient\DTO\Events\ProductLineEvent;
 use TheMarketer\ApiClient\DTO\Events\SearchEvent;
 use TheMarketer\ApiClient\DTO\Events\SendCustomEvent;
 use TheMarketer\ApiClient\DTO\Events\ServeJavascriptEvent;
 use TheMarketer\ApiClient\DTO\Events\SetEmailEvent;
+use TheMarketer\ApiClient\DTO\Events\ViewCategoryEvent;
 use TheMarketer\ApiClient\DTO\Events\ViewHomepageEvent;
 use TheMarketer\ApiClient\DTO\Events\ViewProductEvent;
+use TheMarketer\ApiClient\DTO\Events\WishlistEvent;
 use TheMarketer\ApiClient\Exception\ApiException;
 use TheMarketer\ApiClient\Exception\CustomerNotFoundException;
 use TheMarketer\ApiClient\Exception\MethodNotAllowedException;
@@ -58,6 +61,41 @@ class EventsApi extends AbstractApi
      * @throws JsonException
      */
     public function viewHomepage(array $payload): array
+    {
+        $dto = ViewHomepageEvent::validateAndCreate($payload);
+
+        return $this->context->tracking->post('/t/r', $dto->toApiPayload());
+    }
+
+    /**
+     * @throws GuzzleException
+     * @throws JsonException
+     */
+    public function viewCategory(array $payload): array
+    {
+        $dto = ViewCategoryEvent::validateAndCreate($payload);
+
+        return $this->context->tracking->post('/t/r', $dto->toApiPayload());
+    }
+
+    /**
+     * The `__sm__order` event: order fields as in `OrdersApi::saveOrder()`, plus the tracking fields.
+     *
+     * @throws GuzzleException
+     * @throws JsonException
+     */
+    public function order(array $payload): array
+    {
+        $dto = OrderEvent::validateAndCreate($payload);
+
+        return $this->context->tracking->post('/t/r', $dto->toApiPayload());
+    }
+
+    /**
+     * @throws GuzzleException
+     * @throws JsonException
+     */
+    public function genericPageView(array $payload): array
     {
         $dto = ViewHomepageEvent::validateAndCreate($payload);
 
@@ -114,7 +152,7 @@ class EventsApi extends AbstractApi
      */
     public function addToWishlist(array $payload): array
     {
-        $dto = ProductLineEvent::validateAndCreate($payload);
+        $dto = WishlistEvent::validateAndCreate($payload);
 
         return $this->context->tracking->post('/t/r', $dto->toApiPayload());
     }
@@ -125,7 +163,7 @@ class EventsApi extends AbstractApi
      */
     public function removeFromWishlist(array $payload): array
     {
-        $dto = ProductLineEvent::validateAndCreate($payload);
+        $dto = WishlistEvent::validateAndCreate($payload);
 
         return $this->context->tracking->post('/t/r', $dto->toApiPayload());
     }

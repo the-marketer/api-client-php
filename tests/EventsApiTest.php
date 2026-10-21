@@ -148,7 +148,7 @@ final class EventsApiTest extends TestCase
     {
         [$api] = $this->apiWithMockResponses();
 
-        $this->expectException(\ArgumentCountError::class);
+        $this->expectException(\TheMarketer\ApiClient\Exception\ValidationException::class);
 
         $payload = $this->validSendCustomEventPayload();
         unset($payload['event']);

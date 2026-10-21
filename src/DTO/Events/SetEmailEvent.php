@@ -20,15 +20,6 @@ class SetEmailEvent extends AbstractPayload
         #[Assert\Email]
         public string $email_address,
         #[Assert\NotBlank]
-        #[Assert\Type('string')]
-        public string $firstname,
-        #[Assert\NotBlank]
-        #[Assert\Type('string')]
-        public string $lastname,
-        #[Assert\NotBlank]
-        #[Assert\Type('string')]
-        public string $phone,
-        #[Assert\NotBlank]
         #[Assert\Url]
         public string $url,
         #[Assert\NotBlank]
@@ -38,7 +29,16 @@ class SetEmailEvent extends AbstractPayload
         #[Assert\Type('string')]
         public string $remote_addr,
         #[Assert\Type('string')]
+        #[Assert\Type('string')]
+        public ?string $firstname = null,
+        #[Assert\Type('string')]
+        public ?string $lastname = null,
+        #[Assert\Type('string')]
+        public ?string $phone = null,
+        #[Assert\Type('string')]
         public ?string $source = null,
+        #[Assert\Type('string')]
+        public ?string $referrer = null,
     ) {
     }
 
@@ -52,14 +52,11 @@ class SetEmailEvent extends AbstractPayload
                 'did' => $this->did,
                 'event' => $this->event,
                 'email_address' => $this->email_address,
-                'firstname' => $this->firstname,
-                'lastname' => $this->lastname,
-                'phone' => $this->phone,
                 'url' => $this->url,
                 'http_user_agent' => $this->http_user_agent,
                 'remote_addr' => $this->remote_addr,
             ],
-            self::filterNonEmpty(['source' => $this->source]),
+            self::filterNonEmpty(['firstname' => $this->firstname, 'lastname' => $this->lastname, 'phone' => $this->phone, 'source' => $this->source, 'referrer' => $this->referrer]),
         );
     }
 }

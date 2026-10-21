@@ -199,7 +199,7 @@ final class SubscribersApiTest extends TestCase
     {
         [$api] = $this->apiWithMockResponses();
 
-        $this->expectException(\TypeError::class);
+        $this->expectException(\TheMarketer\ApiClient\Exception\ValidationException::class);
 
         /** @noinspection PhpParamsInspection */
         /** @phpstan-ignore-next-line */
@@ -214,7 +214,7 @@ final class SubscribersApiTest extends TestCase
     {
         [$api] = $this->apiWithMockResponses();
 
-        $this->expectException(\TypeError::class);
+        $this->expectException(\TheMarketer\ApiClient\Exception\ValidationException::class);
 
         $api->addSubscriberBulk([
             ['email' => 'a@x.com', 'attributes' => 'not-array'],

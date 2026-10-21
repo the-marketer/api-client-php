@@ -162,7 +162,7 @@ final class CouponsApiTest extends TestCase
     {
         [$api] = $this->apiWithMockResponses();
 
-        $this->expectException(\ArgumentCountError::class);
+        $this->expectException(\TheMarketer\ApiClient\Exception\ValidationException::class);
 
         $payload = $this->validSavePayload();
         unset($payload['expiration_date']);

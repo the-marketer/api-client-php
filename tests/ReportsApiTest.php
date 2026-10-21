@@ -322,7 +322,7 @@ final class ReportsApiTest extends TestCase
     {
         [$api] = $this->apiWithMockResponses();
 
-        $this->expectException(\ArgumentCountError::class);
+        $this->expectException(\TheMarketer\ApiClient\Exception\ValidationException::class);
 
         $api->getEmailCampaigns([
             'type' => 'sent',

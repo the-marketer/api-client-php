@@ -11,11 +11,9 @@ class ProductLineVariation extends AbstractPayload
 {
     public function __construct(
         #[Assert\NotBlank]
-        #[Assert\Type('string')]
-        public string $id,
+        public int|string $id,
         #[Assert\NotBlank]
-        #[Assert\Type('string')]
-        public string $sku,
+        public int|string $sku,
     ) {
     }
 }

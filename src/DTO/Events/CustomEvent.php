@@ -30,6 +30,8 @@ class CustomEvent extends AbstractPayload
         public string $remote_addr,
         #[Assert\Type('string')]
         public ?string $source = null,
+        #[Assert\Type('string')]
+        public ?string $referrer = null,
     ) {
     }
 
@@ -47,7 +49,7 @@ class CustomEvent extends AbstractPayload
                 'http_user_agent' => $this->http_user_agent,
                 'remote_addr' => $this->remote_addr,
             ],
-            self::filterNonEmpty(['source' => $this->source]),
+            self::filterNonEmpty(['source' => $this->source, 'referrer' => $this->referrer]),
         );
     }
 }
