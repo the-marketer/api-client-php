@@ -60,6 +60,25 @@ final class ApiClientGapsTest extends TestCase
         }
     }
 
+    public function testWrongOrMissingTypesGiveReadableMessages(): void
+    {
+        try {
+            SaveOrder::validateAndCreate($this->order(['firstname' => ['Ana']]));
+            $this->fail('an array firstname should be rejected');
+        } catch (ValidationException $e) {
+            $this->assertSame('firstname: must be of type string, array given.', $e->getMessage());
+        }
+
+        $order = $this->order();
+        unset($order['lastname']);
+        try {
+            SaveOrder::validateAndCreate($order);
+            $this->fail('a missing lastname should be rejected');
+        } catch (ValidationException $e) {
+            $this->assertSame('lastname: This value is required.', $e->getMessage());
+        }
+    }
+
     public function testSaveOrderRequiresEmailOrPhone(): void
     {
         $this->expectException(ValidationException::class);

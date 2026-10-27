@@ -20,11 +20,24 @@ abstract class Data
         try {
             $instance = new static(...array_intersect_key($data, array_flip($params)));
         } catch (\TypeError $e) {
-            throw new ValidationException($e->getMessage(), 400, $e);
+            throw new ValidationException(self::readableTypeError($e->getMessage()), 400, $e);
         }
         $instance->validate();
 
         return $instance;
+    }
+
+    /** `X::__construct(): Argument #1 ($number) must be of type int, array given, called in …` → `number: must be of type int, array given.` */
+    private static function readableTypeError(string $message): string
+    {
+        if (preg_match('/\(\$(\w+)\) not passed/', $message, $m)) {
+            return $m[1] . ': This value is required.';
+        }
+        if (preg_match('/\(\$(\w+)\) must be of type ([^,]+), (\S+) given/', $message, $m)) {
+            return $m[1] . ': must be of type ' . $m[2] . ', ' . $m[3] . ' given.';
+        }
+
+        return $message;
     }
 
     protected function validate(): void
