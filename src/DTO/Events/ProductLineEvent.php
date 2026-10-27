@@ -47,7 +47,7 @@ class ProductLineEvent extends AbstractPayload
 
     public static function validateAndCreate(array $data): static
     {
-        $data = PayloadArrayNormalizer::coerceNumericStrings($data, ['product_id', 'quantity'], []);
+        $data = PayloadArrayNormalizer::coerceNumericStrings($data, ['quantity'], []);
 
         $variation = $data['variation'] ?? null;
         if (!is_array($variation)) {

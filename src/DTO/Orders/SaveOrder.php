@@ -56,6 +56,13 @@ class SaveOrder extends AbstractPayload
         public ?string $discount_code = null,
         #[Assert\Type('string')]
         public ?string $order_status = null,
+        public int|string|null $store_id = null,
+        #[Assert\Type('string')]
+        public ?string $store_name = null,
+        #[Assert\Type('string')]
+        public ?string $store_city = null,
+        #[Assert\Type('string')]
+        public ?string $store_country = null,
     ) {
     }
 
@@ -63,11 +70,15 @@ class SaveOrder extends AbstractPayload
     {
         $data = PayloadArrayNormalizer::trimStringFields(
             $data,
-            ['email_address', 'phone', 'city', 'county', 'address', 'discount_code', 'order_status'],
+            [
+                'email_address', 'phone', 'city', 'county', 'address', 'discount_code', 'order_status',
+                'store_name', 'store_city', 'store_country',
+            ],
         );
+        // `number` is sent as given: the platform compares it as text, so `"007"` must not become `7`.
         $data = PayloadArrayNormalizer::coerceNumericStrings(
             $data,
-            ['number'],
+            [],
             ['discount_value', 'shipping', 'tax', 'total_value'],
         );
         $data['products'] = array_map(
@@ -91,7 +102,7 @@ class SaveOrder extends AbstractPayload
     }
 
     /**
-     * Optional fields are left out when empty (the platform treats `discount_code` as a coupon pattern),
+     * Optional fields (including the physical store, `store_*`) are left out when empty (the platform treats `discount_code` as a coupon pattern),
      * except `email_address` and `phone`: the platform reads both keys without checking they exist,
      * so a phone-only or email-only order must still carry the empty one.
      *
@@ -100,7 +111,10 @@ class SaveOrder extends AbstractPayload
     public function toApiPayload(): array
     {
         $payload = $this->toArray();
-        $optional = array_flip(['city', 'county', 'address', 'discount_code', 'order_status']);
+        $optional = array_flip([
+            'city', 'county', 'address', 'discount_code', 'order_status',
+            'store_id', 'store_name', 'store_city', 'store_country',
+        ]);
 
         // A list, even when the caller's keys have gaps (a line dropped before sending).
         $payload['products'] = array_values(array_map(

@@ -29,7 +29,6 @@ class SetEmailEvent extends AbstractPayload
         #[Assert\Type('string')]
         public string $remote_addr,
         #[Assert\Type('string')]
-        #[Assert\Type('string')]
         public ?string $firstname = null,
         #[Assert\Type('string')]
         public ?string $lastname = null,
@@ -56,7 +55,13 @@ class SetEmailEvent extends AbstractPayload
                 'http_user_agent' => $this->http_user_agent,
                 'remote_addr' => $this->remote_addr,
             ],
-            self::filterNonEmpty(['firstname' => $this->firstname, 'lastname' => $this->lastname, 'phone' => $this->phone, 'source' => $this->source, 'referrer' => $this->referrer]),
+            self::filterNonEmpty([
+                'firstname' => $this->firstname,
+                'lastname' => $this->lastname,
+                'phone' => $this->phone,
+                'source' => $this->source,
+                'referrer' => $this->referrer,
+            ]),
         );
     }
 }

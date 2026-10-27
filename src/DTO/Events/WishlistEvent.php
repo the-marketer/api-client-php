@@ -46,7 +46,7 @@ class WishlistEvent extends AbstractPayload
 
     public static function validateAndCreate(array $data): static
     {
-        $data = PayloadArrayNormalizer::coerceNumericStrings($data, ['product_id', 'quantity'], []);
+        $data = PayloadArrayNormalizer::coerceNumericStrings($data, ['quantity'], []);
 
         if (($data['variation'] ?? null) !== null) {
             if (!is_array($data['variation'])) {

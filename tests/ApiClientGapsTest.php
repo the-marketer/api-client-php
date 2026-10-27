@@ -70,7 +70,7 @@ final class ApiClientGapsTest extends TestCase
 
     public function testSaveOrderNumberCanBeAnyNonEmptyText(): void
     {
-        foreach (['EU-1001', '#1001', 'D1', 1001] as $number) {
+        foreach (['EU-1001', '#1001', 'D1', 1001, '007', '1001'] as $number) {
             $this->assertSame($number, SaveOrder::validateAndCreate($this->order(['number' => $number]))->toApiPayload()['number']);
         }
     }
@@ -81,6 +81,54 @@ final class ApiClientGapsTest extends TestCase
             try {
                 SaveOrder::validateAndCreate($this->order(['number' => $bad]));
                 $this->fail('number ' . var_export($bad, true) . ' should be rejected');
+            } catch (ValidationException) {
+                $this->addToAssertionCount(1);
+            }
+        }
+    }
+
+    public function testSaveOrderSendsPhysicalStoreWhenGiven(): void
+    {
+        $payload = SaveOrder::validateAndCreate($this->order([
+            'store_id' => 'B-12',
+            'store_name' => ' Mall Vitan ',
+            'store_city' => 'Bucuresti',
+            'store_country' => 'RO',
+        ]))->toApiPayload();
+
+        $this->assertSame('B-12', $payload['store_id']);
+        $this->assertSame('Mall Vitan', $payload['store_name']);
+        $this->assertSame('Bucuresti', $payload['store_city']);
+        $this->assertSame('RO', $payload['store_country']);
+
+        $online = SaveOrder::validateAndCreate($this->order())->toApiPayload();
+        foreach (['store_id', 'store_name', 'store_city', 'store_country'] as $omitted) {
+            $this->assertArrayNotHasKey($omitted, $online);
+        }
+    }
+
+    public function testOrderLineAcceptsSkuAsProductIdAndSalePrice(): void
+    {
+        $payload = SaveOrder::validateAndCreate($this->order([
+            'products' => [
+                ['product_id' => 'SKU-00123', 'price' => '20', 'sale_price' => '15.5', 'quantity' => 2],
+                ['product_id' => '00123', 'price' => 10, 'quantity' => 1],
+            ],
+        ]))->toApiPayload();
+
+        $this->assertSame('SKU-00123', $payload['products'][0]['product_id']);
+        $this->assertSame(15.5, $payload['products'][0]['sale_price']);
+        // a SKU that looks numeric keeps its zeros: the platform matches it as text
+        $this->assertSame('00123', $payload['products'][1]['product_id']);
+        $this->assertArrayNotHasKey('sale_price', $payload['products'][1]);
+    }
+
+    public function testOrderLineRejectsBlankOrZeroProductId(): void
+    {
+        foreach (['', '  ', '0', 0] as $bad) {
+            try {
+                SaveOrder::validateAndCreate($this->order(['products' => [['product_id' => $bad, 'price' => 1, 'quantity' => 1]]]));
+                $this->fail('product_id ' . var_export($bad, true) . ' should be rejected');
             } catch (ValidationException) {
                 $this->addToAssertionCount(1);
             }
@@ -170,7 +218,7 @@ final class ApiClientGapsTest extends TestCase
         $api->addToWishlist($this->event(['event' => 'add_to_wishlist', 'product_id' => '101']));
 
         $body = json_decode((string) $this->lastRequest($bucket)->getBody(), true, 512, JSON_THROW_ON_ERROR);
-        $this->assertSame(101, $body['product_id']);
+        $this->assertSame('101', $body['product_id']);
         $this->assertArrayNotHasKey('quantity', $body);
         $this->assertArrayNotHasKey('variation', $body);
     }

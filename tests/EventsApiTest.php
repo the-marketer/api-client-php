@@ -582,7 +582,7 @@ final class EventsApiTest extends TestCase
      * @throws GuzzleException
      * @throws \JsonException
      */
-    public function testAddToCartCoercesStringProductIdAndQuantity(): void
+    public function testAddToCartKeepsProductIdAsGivenAndCoercesQuantity(): void
     {
         [$api, $container] = $this->apiWithMockResponses(
             new Response(200, [], '{}'),
@@ -595,7 +595,7 @@ final class EventsApiTest extends TestCase
 
         $request = $this->lastRequest($container);
         $body = json_decode((string) $request->getBody(), true, 512, JSON_THROW_ON_ERROR);
-        $this->assertSame(55, $body['product_id']);
+        $this->assertSame('55', $body['product_id']);
         $this->assertSame(3, $body['quantity']);
     }
 

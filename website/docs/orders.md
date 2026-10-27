@@ -36,7 +36,7 @@ Creates or syncs an order using the standard payload format.
 **Input**
 
 - `payload` (`array<string, mixed>`):
-  - `number` (`int|string`, required; a draft number such as `D1` is accepted)
+  - `number` (`int|string`, required; a draft number such as `D1` is accepted; sent as given, so `"007"` stays `"007"`)
   - `email_address` (`?string`; `email_address` or `phone` is required)
   - `phone` (`?string`, omitted when empty)
   - `firstname` (`string`, required)
@@ -46,15 +46,22 @@ Creates or syncs an order using the standard payload format.
   - `address` (`?string`, omitted when empty)
   - `discount_value` (`float`, required)
   - `discount_code` (`?string`, omitted when empty)
-  - `order_status` (`?string`)
+  - `order_status` (`?string`, omitted when empty)
+  - `store_id` (`int|string|null`, omitted when empty) — physical store the order was placed in
+  - `store_name`, `store_city`, `store_country` (`?string`, omitted when empty)
   - `shipping` (`float`, required)
   - `tax` (`float`, required)
   - `total_value` (`float`, required)
   - `products` (`list<array<string, mixed>>`, required, min 1)
-    - `product_id` (`int`, required)
+    - `product_id` (`int|string`, required, sent as given) — your product id or the product SKU: the platform looks up the id first, then the SKU
     - `price` (`float`, required)
+    - `sale_price` (`?float`, omitted when empty) — the price paid per unit; the platform uses it instead of `price` when present
     - `quantity` (`int`, required)
-    - `variation_sku` (`string`, required)
+    - `variation_sku` (`?string`, omitted when empty; not read by the platform)
+
+Leave `discount_code` out when there is no code: the platform uses it as a pattern on coupons, so a placeholder such as `-` matches real coupons.
+
+**Changed in 0.2.0:** `number` and line `product_id` are sent as given (a numeric string is no longer converted to `int`); line `product_id` accepts text (a SKU); `store_*` and line `sale_price` are new optional fields.
 
 **Response**
 
@@ -71,7 +78,6 @@ $result = $ordersApi->saveOrder([
     'county' => 'Bucharest',
     'address' => 'Street 1, no 2',
     'discount_value' => 0.0,
-    'discount_code' => '-',
     'shipping' => 0.0,
     'tax' => 0.0,
     'total_value' => 99.99,

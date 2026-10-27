@@ -17,7 +17,15 @@ $client = new Client([
 $eventsApi = $client->events();
 ```
 
-Every tracking event accepts an optional `referrer` (`string`) next to `source`. `product_id` accepts an `int` or a `string`. `addToWishlist` / `removeFromWishlist` only need `product_id`; `quantity` and `variation` are optional. `viewCategory` needs `category` (the catalog path, levels joined with `|`). `genericPageView` takes the same fields as `viewHomepage`.
+`did` is the visitor's device id: the UUID that `t.js` writes in the `__sm__c` cookie (`{"did":"…","k":"…"}`). `remote_addr` and `http_user_agent` in the body take priority over the ones the server sees, so send the visitor's, not your server's. `trackingKey` is only needed by the tracking methods in this page.
+
+Rules shared by the tracking methods:
+
+- Every tracking event accepts an optional `referrer` (`string`) next to `source`. Send it: the platform uses it to work out where the visit came from (without it every visit counts as direct).
+- `product_id` accepts an `int` or a `string` and is sent exactly as given (`"007"` stays `"007"`). The platform matches it as text against the product id from your feed. Send the same id as the feed, not the SKU: for events there is no fallback on SKU (orders have one, see [`saveOrder`](orders.md#saveorder)).
+- `addToWishlist` / `removeFromWishlist` only need `product_id`; `quantity` and `variation` are optional.
+
+**Changed in 0.2.0:** `product_id` is no longer rejected when it is not a positive integer, and a numeric string is no longer converted to `int`. Code that relied on the client throwing for a non-numeric `product_id` must validate it itself.
 
 ---
 
@@ -103,6 +111,96 @@ $result = $eventsApi->viewHomepage([
 
 ---
 
+## `viewCategory`
+
+Category page view (`ViewCategoryEvent`, event `__sm__view_category`).
+
+**Input — `payload`**
+
+- `did` (`string`, required)
+- `event` (`string`, required) — `__sm__view_category`
+- `category` (`string`, required) — the category path as in the catalog, levels joined with `|` (e.g. `Men|Shoes`)
+- `url` (`string`, required, URL valid)
+- `http_user_agent` (`string`, required)
+- `remote_addr` (`string`, required)
+- `source` (`?string`, optional)
+- `referrer` (`?string`, optional)
+
+**Response**
+
+- `array`
+
+```php
+$result = $eventsApi->viewCategory([
+    'did' => 'device-abc',
+    'event' => '__sm__view_category',
+    'category' => 'Men|Shoes',
+    'url' => 'https://shop.example.com/c/men-shoes',
+    'http_user_agent' => 'Mozilla/5.0',
+    'remote_addr' => '203.0.113.10',
+]);
+```
+
+---
+
+## `genericPageView`
+
+Any other page view (event `__generic_page_view`). Same payload as [`viewHomepage`](#viewhomepage) (`ViewHomepageEvent`), with a different `event` value.
+
+```php
+$result = $eventsApi->genericPageView([
+    'did' => 'device-abc',
+    'event' => '__generic_page_view',
+    'url' => 'https://shop.example.com/pages/about',
+    'http_user_agent' => 'Mozilla/5.0',
+    'remote_addr' => '203.0.113.10',
+]);
+```
+
+---
+
+## `order`
+
+Order placed in the visitor's session (`OrderEvent`, event `__sm__order`). Use it when the order should be tied to the visitor (`did`); use [`saveOrder`](orders.md#saveorder) for orders sent from the server without a session.
+
+**Input — `payload`**
+
+- every field of [`saveOrder`](orders.md#saveorder) (same rules: `number` sent as given, `email_address` or `phone` required, empty optional fields left out, `store_*` and line `sale_price` optional)
+- `did` (`string`, required)
+- `event` (`string`, required) — `__sm__order`
+- `url` (`string`, required, URL valid)
+- `http_user_agent` (`string`, required)
+- `remote_addr` (`string`, required)
+- `source` (`?string`, optional)
+- `referrer` (`?string`, optional)
+
+**Response**
+
+- `array`
+
+```php
+$result = $eventsApi->order([
+    'did' => 'device-abc',
+    'event' => '__sm__order',
+    'url' => 'https://shop.example.com/checkout/thank-you',
+    'http_user_agent' => 'Mozilla/5.0',
+    'remote_addr' => '203.0.113.10',
+    'number' => 'EU-1001',
+    'firstname' => 'John',
+    'lastname' => 'Doe',
+    'email_address' => 'john@doe.com',
+    'discount_value' => 0.0,
+    'shipping' => 0.0,
+    'tax' => 0.0,
+    'total_value' => 99.99,
+    'products' => [
+        ['product_id' => 123, 'price' => 99.99, 'quantity' => 1],
+    ],
+]);
+```
+
+---
+
 ## `setEmail`
 
 Associate/set an email in the tracking flow (`SetEmailEvent`).
@@ -112,13 +210,14 @@ Associate/set an email in the tracking flow (`SetEmailEvent`).
 - `did` (`string`, required)
 - `event` (`string`, required)
 - `email_address` (`string`, required, email valid)
-- `firstname` (`string`, required)
-- `lastname` (`string`, required)
-- `phone` (`?string`)
+- `firstname` (`?string`, optional, omitted when empty)
+- `lastname` (`?string`, optional, omitted when empty)
+- `phone` (`?string`, optional, omitted when empty)
 - `url` (`string`, required, URL valid)
 - `http_user_agent` (`string`, required)
 - `remote_addr` (`string`, required)
 - `source` (`?string`, optional)
+- `referrer` (`?string`, optional)
 
 **Response**
 
@@ -134,7 +233,7 @@ Product view (`ViewProductEvent`).
 
 - `did` (`string`, required)
 - `event` (`string`, required)
-- `product_id` (`string`, required)
+- `product_id` (`int|string`, required, sent as given)
 - `url` (`string`, required, URL valid)
 - `http_user_agent` (`string`, required)
 - `remote_addr` (`string`, required)
@@ -165,7 +264,7 @@ Adds a product line to cart.
 
 - `did` (`string`, required)
 - `event` (`string`, required) — e.g. `add_to_cart`, `remove_from_cart`, ...
-- `product_id` (`int`, required, positive) — can be sent as a numeric string; it is normalized
+- `product_id` (`int|string`, required, sent as given)
 - `quantity` (`int`, required, positive)
 - `variation` (`array`, required):
   - `id` (`string`, required)
