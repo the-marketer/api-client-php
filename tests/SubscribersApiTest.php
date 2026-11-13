@@ -521,6 +521,46 @@ final class SubscribersApiTest extends TestCase
         $this->assertSame(['email' => 'only@example.com'], $body);
     }
 
+    public function testRemoveSubscriberSendsPhoneOnly(): void
+    {
+        [$api, $container] = $this->apiWithMockResponses(
+            new Response(200, [], '{"result":true}'),
+        );
+
+        $api->removeSubscriber(phone: '+40700000000');
+
+        $request = $this->lastRequest($container);
+        $this->assertStringEndsWith('/remove_subscriber', $request->getUri()->getPath());
+        $body = json_decode((string) $request->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame(['phone' => '+40700000000'], $body);
+    }
+
+    public function testRemoveSubscriberSendsEmailPhoneAndChannels(): void
+    {
+        [$api, $container] = $this->apiWithMockResponses(
+            new Response(200, [], '{"result":true}'),
+        );
+
+        $api->removeSubscriber('user@example.com', 'sms', '+40700000000');
+
+        $request = $this->lastRequest($container);
+        $body = json_decode((string) $request->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame([
+            'email' => 'user@example.com',
+            'phone' => '+40700000000',
+            'channels' => 'sms',
+        ], $body);
+    }
+
+    public function testRemoveSubscriberThrowsWhenNeitherEmailNorPhone(): void
+    {
+        [$api] = $this->apiWithMockResponses();
+
+        $this->expectException(ValidationException::class);
+
+        $api->removeSubscriber();
+    }
+
     public function testUpdateTagsSendsPostWithEmailOnlyWhenTagListsEmpty(): void
     {
         [$api, $container] = $this->apiWithMockResponses(

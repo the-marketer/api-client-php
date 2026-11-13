@@ -108,6 +108,7 @@ final class DtoMinimalValidationTest extends PHPUnitTestCase
         yield 'Subscribers\ListSubscribersDateRange' => [\TheMarketer\ApiClient\DTO\Subscribers\ListSubscribersDateRange::class, []];
         yield 'Subscribers\UpdateTags' => [\TheMarketer\ApiClient\DTO\Subscribers\UpdateTags::class, ['email' => 'a@b.com']];
         yield 'Subscribers\RemoveSubscriber' => [\TheMarketer\ApiClient\DTO\Subscribers\RemoveSubscriber::class, ['email' => 'a@b.com']];
+        yield 'Subscribers\RemoveSubscriber (phone)' => [\TheMarketer\ApiClient\DTO\Subscribers\RemoveSubscriber::class, ['phone' => '+40700000000']];
 
         yield 'Events\SendCustomEvent' => [\TheMarketer\ApiClient\DTO\Events\SendCustomEvent::class, ['email' => 'a@b.com', 'event' => 'e']];
         yield 'Events\CustomEvent' => [\TheMarketer\ApiClient\DTO\Events\CustomEvent::class, [
