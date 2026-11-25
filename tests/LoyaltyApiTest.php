@@ -11,6 +11,7 @@ use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Psr7\Response;
 use NotificationService\Sdk\Internal\LoyaltyApi;
 use TheMarketer\ApiClient\Common\Config;
+use TheMarketer\ApiClient\DTO\Loyalty\ManageLoyaltyPoints;
 use TheMarketer\ApiClient\Exception\ValidationException;
 
 final class LoyaltyApiTest extends TestCase
@@ -219,5 +220,12 @@ final class LoyaltyApiTest extends TestCase
         $this->expectExceptionMessage('Either email or phone is required.');
 
         $api->managePoints(null, 'increase', 5);
+    }
+
+    public function testManageLoyaltyPointsKeepsPositionalConstructorOrder(): void
+    {
+        $dto = new ManageLoyaltyPoints('john@doe.com', 'increase', 5);
+
+        $this->assertSame(['email' => 'john@doe.com', 'action' => 'increase', 'points' => 5], $dto->toApiPayload());
     }
 }
