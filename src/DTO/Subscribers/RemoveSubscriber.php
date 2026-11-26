@@ -7,18 +7,26 @@ namespace TheMarketer\ApiClient\DTO\Subscribers;
 use Symfony\Component\Validator\Constraints as Assert;
 use TheMarketer\ApiClient\Common\AbstractPayload;
 
+#[Assert\Expression(
+    "(this.email !== null and this.email !== '') or (this.phone !== null and this.phone !== '')",
+    message: 'Either email or phone is required.'
+)]
 class RemoveSubscriber extends AbstractPayload
 {
     public function __construct(
-        #[Assert\NotBlank]
         #[Assert\Email]
-        public string $email,
+        public ?string $email = null,
         public ?string $channels = null,
+        public ?string $phone = null,
     ) {
     }
 
     public function toApiPayload(): array
     {
-        return self::filterNonEmpty(['email' => $this->email, 'channels' => $this->channels]);
+        return self::filterNonEmpty([
+            'email' => $this->email,
+            'phone' => $this->phone,
+            'channels' => $this->channels,
+        ]);
     }
 }

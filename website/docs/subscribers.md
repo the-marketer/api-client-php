@@ -161,12 +161,17 @@ $result = $subscribersApi->listUnsubscribed('2026-01-01', '2026-01-31');
 
 ## `removeSubscriber`
 
-Removes a subscriber (optionally by channels).
+Removes a subscriber (optionally by channels), identified by `email` and/or `phone`.
+
+The contact is looked up by `email` first; if `email` is missing or not found, `phone` is used as a fallback.
 
 **Input**
 
-- `email` (`string`, required)
+- `email` (`?string`)
 - `channels` (`?string`)
+- `phone` (`?string`)
+
+At least one of `email` or `phone` is required.
 
 **Response**
 
@@ -174,6 +179,9 @@ Removes a subscriber (optionally by channels).
 
 ```php
 $result = $subscribersApi->removeSubscriber('john@doe.com', 'email');
+
+// by phone only
+$result = $subscribersApi->removeSubscriber(phone: '+40700000000', channels: 'sms');
 ```
 
 ## `statusSubscriber`

@@ -216,6 +216,8 @@ class SubscribersApi extends AbstractApi
     }
 
     /**
+     * `email` și/sau `phone`; contactul e căutat după email, apoi după telefon.
+     *
      * @return array<string, mixed>
      *
      * @throws UnauthorizedException
@@ -226,11 +228,12 @@ class SubscribersApi extends AbstractApi
      * @throws GuzzleException
      * @throws JsonException
      */
-    public function removeSubscriber(string $email, ?string $channels = null): array
+    public function removeSubscriber(?string $email = null, ?string $channels = null, ?string $phone = null): array
     {
         $dto = RemoveSubscriber::validateAndCreate([
             'email' => $email,
             'channels' => $channels,
+            'phone' => $phone,
         ]);
 
         return $this->context->rest->post('/remove_subscriber', $dto->toApiPayload());
