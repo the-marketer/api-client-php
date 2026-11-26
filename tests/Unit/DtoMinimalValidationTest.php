@@ -160,6 +160,9 @@ final class DtoMinimalValidationTest extends PHPUnitTestCase
         yield 'AppPush\RemoveMobilePushToken' => [\TheMarketer\ApiClient\DTO\AppPush\RemoveMobilePushToken::class, ['email' => 'a@b.com', 'type' => 'android']];
 
         yield 'Loyalty\ManageLoyaltyPoints' => [\TheMarketer\ApiClient\DTO\Loyalty\ManageLoyaltyPoints::class, ['email' => 'a@b.com', 'action' => 'increase', 'points' => 5]];
+        yield 'Loyalty\ManageLoyaltyPoints (phone)' => [\TheMarketer\ApiClient\DTO\Loyalty\ManageLoyaltyPoints::class, ['phone' => '0735111411', 'action' => 'increase', 'points' => 5]];
+        yield 'Loyalty\LoyaltyInfo' => [\TheMarketer\ApiClient\DTO\Loyalty\LoyaltyInfo::class, ['email' => 'a@b.com']];
+        yield 'Loyalty\LoyaltyInfo (phone)' => [\TheMarketer\ApiClient\DTO\Loyalty\LoyaltyInfo::class, ['phone' => '0735111411']];
 
         yield 'Reports\EmailReports' => [\TheMarketer\ApiClient\DTO\Reports\EmailReports::class, ['type' => 'sent', 'start' => '2025-01-01', 'end' => '2025-01-31']];
         yield 'Reports\PushReports' => [\TheMarketer\ApiClient\DTO\Reports\PushReports::class, ['type' => 'sent', 'start' => '2025-01-01', 'end' => '2025-01-31']];

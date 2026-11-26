@@ -11,6 +11,7 @@ use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Psr7\Response;
 use NotificationService\Sdk\Internal\LoyaltyApi;
 use TheMarketer\ApiClient\Common\Config;
+use TheMarketer\ApiClient\DTO\Loyalty\ManageLoyaltyPoints;
 use TheMarketer\ApiClient\Exception\ValidationException;
 
 final class LoyaltyApiTest extends TestCase
@@ -171,5 +172,60 @@ final class LoyaltyApiTest extends TestCase
         $this->expectException(ValidationException::class);
 
         $api->managePoints('user@example.com', 'increase', 0);
+    }
+
+    public function testGetInfoSendsPhoneWhenNoEmail(): void
+    {
+        [$api, $container] = $this->apiWithMockResponses(
+            new Response(200, [], '{}'),
+        );
+
+        $api->getInfo(phone: '0735111411');
+
+        parse_str($this->lastRequest($container)->getUri()->getQuery(), $query);
+        $this->assertSame('0735111411', $query['phone']);
+        $this->assertArrayNotHasKey('email', $query);
+    }
+
+    public function testGetInfoThrowsWhenEmailAndPhoneMissing(): void
+    {
+        [$api] = $this->apiWithMockResponses();
+
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('Either email or phone is required.');
+
+        $api->getInfo();
+    }
+
+    public function testManagePointsSendsPhoneWhenNoEmail(): void
+    {
+        [$api, $container] = $this->apiWithMockResponses(
+            new Response(200, [], '{}'),
+        );
+
+        $api->managePoints(null, 'increase', 5, '0735111411');
+
+        $body = json_decode((string) $this->lastRequest($container)->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame('0735111411', $body['phone']);
+        $this->assertArrayNotHasKey('email', $body);
+        $this->assertSame('increase', $body['action']);
+        $this->assertSame(5, $body['points']);
+    }
+
+    public function testManagePointsThrowsWhenEmailAndPhoneMissing(): void
+    {
+        [$api] = $this->apiWithMockResponses();
+
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('Either email or phone is required.');
+
+        $api->managePoints(null, 'increase', 5);
+    }
+
+    public function testManageLoyaltyPointsKeepsPositionalConstructorOrder(): void
+    {
+        $dto = new ManageLoyaltyPoints('john@doe.com', 'increase', 5);
+
+        $this->assertSame(['email' => 'john@doe.com', 'action' => 'increase', 'points' => 5], $dto->toApiPayload());
     }
 }
