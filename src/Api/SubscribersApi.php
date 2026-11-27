@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NotificationService\Sdk\Internal;
 
+use DateTimeInterface;
 use GuzzleHttp\Exception\GuzzleException;
 use JsonException;
 use TheMarketer\ApiClient\Common\AbstractApi;
@@ -13,6 +14,7 @@ use TheMarketer\ApiClient\DTO\Subscribers\DeleteSubscriber;
 use TheMarketer\ApiClient\DTO\Subscribers\ListContacts;
 use TheMarketer\ApiClient\DTO\Subscribers\ListSubscribersDateRange;
 use TheMarketer\ApiClient\DTO\Subscribers\RemoveSubscriber;
+use TheMarketer\ApiClient\DTO\Subscribers\SmsConsent;
 use TheMarketer\ApiClient\DTO\Subscribers\EmailValidator;
 use TheMarketer\ApiClient\DTO\Subscribers\SubscriberValidator;
 use TheMarketer\ApiClient\DTO\Subscribers\UnsubscribedEmails;
@@ -336,5 +338,52 @@ class SubscribersApi extends AbstractApi
         ]);
 
         return $this->context->rest->post('/update-tags', $dto->toApiPayload());
+    }
+
+    /**
+     * `POST /sms_consent`: sets a contact's SMS marketing consent, keyed by phone.
+     *
+     * Answers `{result: true, outcome}` where `outcome` is `created` (new contact), `subscribed`, `unsubscribed`,
+     * `unchanged` (already in that state), `stale` (the platform holds a newer consent than `consent_updated_at`)
+     * or `missing` (no contact to unsubscribe).
+     *
+     * @param string                        $phone            required, at most 32 characters
+     * @param string                        $state            `subscribed` or `unsubscribed`
+     * @param string|null                   $email            a valid email, when known
+     * @param string|null                   $firstname        at most 255 characters
+     * @param string|null                   $lastname         at most 255 characters
+     * @param DateTimeInterface|string|null $consentUpdatedAt when the consent changed at the source; ISO-8601 with an offset
+     * @param string|null                   $source           e.g. `connector` (no echo to the connector's own webhooks)
+     *
+     * @return array{result: bool, outcome: string}
+     *
+     * @throws UnauthorizedException
+     * @throws CustomerNotFoundException
+     * @throws MethodNotAllowedException
+     * @throws ApiException
+     * @throws ValidationException
+     * @throws JsonException
+     * @throws GuzzleException
+     */
+    public function smsConsent(
+        string $phone,
+        string $state,
+        ?string $email = null,
+        ?string $firstname = null,
+        ?string $lastname = null,
+        DateTimeInterface|string|null $consentUpdatedAt = null,
+        ?string $source = null,
+    ): array {
+        $dto = SmsConsent::validateAndCreate([
+            'phone' => $phone,
+            'state' => $state,
+            'email' => $email,
+            'firstname' => $firstname,
+            'lastname' => $lastname,
+            'consent_updated_at' => $consentUpdatedAt,
+            'source' => $source,
+        ]);
+
+        return $this->context->rest->post('/sms_consent', $dto->toApiPayload());
     }
 }

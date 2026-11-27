@@ -812,4 +812,123 @@ final class SubscribersApiTest extends TestCase
         parse_str($request->getUri()->getQuery(), $query);
         $this->assertSame(['k' => self::MOCK_API_KEY, 'u' => self::MOCK_DOMAIN], $query);
     }
+
+    /**
+     * @throws GuzzleException
+     * @throws JsonException
+     */
+    public function testSmsConsentPostsTheFullContract(): void
+    {
+        [$api, $container] = $this->apiWithMockResponses(new Response(200, [], '{"result":true,"outcome":"subscribed"}'));
+
+        $result = $api->smsConsent(
+            '+40700000001',
+            'subscribed',
+            'ana@example.com',
+            'Ana',
+            'Pop',
+            '2026-11-27T10:15:00Z',
+            'connector',
+        );
+
+        $this->assertSame(['result' => true, 'outcome' => 'subscribed'], $result);
+
+        $request = $this->lastRequest($container);
+        $this->assertSame('POST', $request->getMethod());
+        $this->assertStringEndsWith('/api/v1/sms_consent', $request->getUri()->getPath());
+        parse_str($request->getUri()->getQuery(), $query);
+        $this->assertSame(['k' => self::MOCK_API_KEY, 'u' => self::MOCK_DOMAIN], $query);
+
+        $body = json_decode((string) $request->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame([
+            'phone' => '+40700000001',
+            'state' => 'subscribed',
+            'email' => 'ana@example.com',
+            'firstname' => 'Ana',
+            'lastname' => 'Pop',
+            'consent_updated_at' => '2026-11-27T10:15:00Z',
+            'source' => 'connector',
+        ], $body);
+    }
+
+    /**
+     * @throws GuzzleException
+     * @throws JsonException
+     */
+    public function testSmsConsentSendsOnlyPhoneAndStateWhenNothingElseIsKnown(): void
+    {
+        [$api, $container] = $this->apiWithMockResponses(new Response(200, [], '{"result":true,"outcome":"missing"}'));
+
+        $this->assertSame('missing', $api->smsConsent(' +40700000001 ', 'unsubscribed', '', '  ')['outcome']);
+
+        $body = json_decode((string) $this->lastRequest($container)->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame(['phone' => '+40700000001', 'state' => 'unsubscribed'], $body);
+    }
+
+    public function testSmsConsentFormatsADateTime(): void
+    {
+        [$api, $container] = $this->apiWithMockResponses(new Response(200, [], '{"result":true,"outcome":"stale"}'));
+
+        $api->smsConsent('+40700000001', 'subscribed', consentUpdatedAt: new \DateTimeImmutable('2026-11-27 12:15:00', new \DateTimeZone('Europe/Bucharest')));
+
+        $body = json_decode((string) $this->lastRequest($container)->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame('2026-11-27T12:15:00.000+02:00', $body['consent_updated_at']);
+    }
+
+    /**
+     * @return iterable<string, array{0: array<string, mixed>, 1: string}>
+     */
+    public static function invalidSmsConsents(): iterable
+    {
+        yield 'blank phone' => [['phone' => '  ', 'state' => 'subscribed'], 'phone'];
+        yield 'phone too long' => [['phone' => str_repeat('1', 33), 'state' => 'subscribed'], 'phone'];
+        yield 'unknown state' => [['phone' => '+40700000001', 'state' => 'pending'], 'state must be subscribed or unsubscribed.'];
+        yield 'invalid email' => [['phone' => '+40700000001', 'state' => 'subscribed', 'email' => 'not-an-email'], 'email'];
+        yield 'firstname too long' => [['phone' => '+40700000001', 'state' => 'subscribed', 'firstname' => str_repeat('a', 256)], 'firstname'];
+        yield 'lastname too long' => [['phone' => '+40700000001', 'state' => 'subscribed', 'lastname' => str_repeat('a', 256)], 'lastname'];
+        yield 'date without time' => [['phone' => '+40700000001', 'state' => 'subscribed', 'consentUpdatedAt' => '2026-11-27'], 'consent_updated_at'];
+        yield 'date without offset' => [['phone' => '+40700000001', 'state' => 'subscribed', 'consentUpdatedAt' => '2026-11-27T10:15:00'], 'consent_updated_at'];
+        yield 'impossible date' => [['phone' => '+40700000001', 'state' => 'subscribed', 'consentUpdatedAt' => '2026-02-30T10:15:00Z'], 'consent_updated_at'];
+        yield 'not a date' => [['phone' => '+40700000001', 'state' => 'subscribed', 'consentUpdatedAt' => 'yesterday'], 'consent_updated_at'];
+    }
+
+    /**
+     * @param array<string, mixed> $args
+     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('invalidSmsConsents')]
+    public function testSmsConsentRejectsInvalidInput(array $args, string $message): void
+    {
+        [$api, $container] = $this->apiWithMockResponses();
+
+        try {
+            $api->smsConsent(...$args);
+            $this->fail('Invalid input must throw.');
+        } catch (ValidationException $e) {
+            $this->assertStringContainsString($message, $e->getMessage());
+        }
+
+        $this->assertSame([], $container->requests);
+    }
+
+    /**
+     * @return iterable<string, array{0: string}>
+     */
+    public static function validConsentDates(): iterable
+    {
+        yield 'Z' => ['2026-11-27T10:15:00Z'];
+        yield 'offset' => ['2026-11-27T12:15:00+02:00'];
+        yield 'fraction' => ['2026-11-27T10:15:00.123456Z'];
+        yield 'no seconds' => ['2026-11-27T10:15Z'];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('validConsentDates')]
+    public function testSmsConsentAcceptsIso8601DateTimes(string $date): void
+    {
+        [$api, $container] = $this->apiWithMockResponses(new Response(200, [], '{"result":true,"outcome":"unchanged"}'));
+
+        $api->smsConsent('+40700000001', 'subscribed', consentUpdatedAt: $date);
+
+        $body = json_decode((string) $this->lastRequest($container)->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame($date, $body['consent_updated_at']);
+    }
 }

@@ -221,6 +221,35 @@ $result = $subscribersApi->removeSubscriber('john@doe.com', 'email');
 $result = $subscribersApi->removeSubscriber('john@doe.com', 'email', 'connector');
 ```
 
+## `smsConsent`
+
+Sets a contact's SMS marketing consent, keyed by phone. Uses **POST** `/sms_consent`.
+
+**Input**
+
+- `phone` (`string`, required, at most 32 characters)
+- `state` (`string`, required): `subscribed` or `unsubscribed`
+- `email` (`?string`): a valid email, when known
+- `firstname`, `lastname` (`?string`, at most 255 characters)
+- `consentUpdatedAt` (`DateTimeInterface|string|null`, sent as `consent_updated_at`): when the consent changed at the source, ISO-8601 with an offset (`2026-11-27T10:15:00Z`); a `DateTimeInterface` is formatted for you. The platform ignores a change older than the consent it holds.
+- `source` (`?string`): e.g. `connector` (no echo to the connector's own webhooks)
+
+Blank optional values are left out of the body.
+
+**Response**
+
+- `array`: `{result: true, outcome}`; `outcome` is `created`, `subscribed`, `unsubscribed`, `unchanged`, `stale` (the platform holds a newer consent) or `missing` (no contact to unsubscribe).
+
+```php
+$result = $subscribersApi->smsConsent(
+    '+40700000001',
+    'subscribed',
+    email: 'ana@example.com',
+    consentUpdatedAt: '2026-11-27T10:15:00Z',
+    source: 'connector',
+);
+```
+
 ## `statusSubscriber`
 
 Gets subscriber status for an email.
