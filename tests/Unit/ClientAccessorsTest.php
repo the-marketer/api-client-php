@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
+use NotificationService\Sdk\Internal\AccountApi;
 use NotificationService\Sdk\Internal\CampaignsApi;
 use NotificationService\Sdk\Internal\CouponsApi;
 use NotificationService\Sdk\Internal\EventsApi;
@@ -38,6 +39,7 @@ final class ClientAccessorsTest extends PHPUnitTestCase
         $this->assertInstanceOf(MobilePushApi::class, $client->mobilePush());
         $this->assertInstanceOf(EventsApi::class, $client->events());
         $this->assertInstanceOf(ReportsApi::class, $client->reports());
+        $this->assertInstanceOf(AccountApi::class, $client->account());
 
         $this->assertSame($client->subscribers(), $client->subscribers());
     }

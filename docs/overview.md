@@ -38,6 +38,7 @@ URL-ul de bază REST este `{restUrl}/api/{apiVersion}/` — vezi `Config::baseRe
 - `mobilePush()` (push mobil)
 - `events()`
 - `reports()`
+- `account()` (plan, allowed domains, reputație, sănătatea produselor, DNS email)
 
 ## Next step
 

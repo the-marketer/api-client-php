@@ -137,6 +137,7 @@ Access to `customerId`, `restKey`, `baseRestUrl()`, `trackingKey()`, etc.
 | `mobilePush()` | Mobile push (iOS/Android tokens) |
 | `events()` | Custom events |
 | `reports()` | Email/SMS/push/forms/audience reports |
+| `account()` | Account plan and name, allowed (tracking) domains, dashboard reputation and product health, email DNS settings and validation |
 
 Details about parameters: the files in `src/Api/*Api.php` and `src/DTO/**`. The tests in `tests/*ApiTest.php` show examples of valid payloads.
 
