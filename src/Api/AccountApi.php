@@ -9,6 +9,7 @@ use JsonException;
 use TheMarketer\ApiClient\Common\AbstractApi;
 use TheMarketer\ApiClient\DTO\Account\AllowedDomain;
 use TheMarketer\ApiClient\DTO\Account\EmailSettings;
+use TheMarketer\ApiClient\DTO\Account\ShopifyWebhooks;
 use TheMarketer\ApiClient\Exception\ApiException;
 use TheMarketer\ApiClient\Exception\CustomerNotFoundException;
 use TheMarketer\ApiClient\Exception\MethodNotAllowedException;
@@ -17,7 +18,8 @@ use TheMarketer\ApiClient\Exception\ValidationException;
 
 /**
  * The account's own data and settings, read with the REST key: plan, allowed (tracking) domains, dashboard blocks,
- * email DNS setup. For the latest campaign see {@see CampaignsApi::getLatestCampaign()}.
+ * email DNS setup, the webhooks the Shopify connector provisions. For the latest campaign see
+ * {@see CampaignsApi::getLatestCampaign()}.
  */
 class AccountApi extends AbstractApi
 {
@@ -193,5 +195,81 @@ class AccountApi extends AbstractApi
         }
 
         return true;
+    }
+
+    /**
+     * `POST /shopify_webhooks` with `action=upsert`: creates or updates, for each item, the account's webhook with the
+     * same `event_type` and `destination_url` (POST, Bearer `$token`, enabled); other webhooks are not touched.
+     * Idempotent; a new token replaces the old one (rotation).
+     *
+     * Answers `{result: true, webhooks: {<event_type>: "created"|"updated"}}`. A field error answers 422
+     * (`{result: false, error, message}`), thrown as {@see ApiException} with code 422.
+     *
+     * @param string                                                                    $token    the Bearer token the platform will send, at most 255 characters
+     * @param list<array{event_type: string, destination_url: string, json: string}> $webhooks 1 to 20 items; `json` is the body template, a JSON object
+     *                                                                                            (`{{client_email}}`-style variables allowed); `destination_url` is https://
+     * @param string|null                                                               $shop     optional `*.myshopify.com` domain, remembered by the platform
+     *
+     * @return array{result: bool, webhooks: array<string, string>}
+     *
+     * @throws ValidationException
+     * @throws UnauthorizedException
+     * @throws CustomerNotFoundException
+     * @throws MethodNotAllowedException
+     * @throws ApiException
+     * @throws JsonException
+     * @throws GuzzleException
+     */
+    public function upsertShopifyWebhooks(string $token, array $webhooks, ?string $shop = null): array
+    {
+        return $this->shopifyWebhooks([
+            'action' => ShopifyWebhooks::ACTION_UPSERT,
+            'token' => $token,
+            'webhooks' => $webhooks,
+            'shop' => $shop,
+        ]);
+    }
+
+    /**
+     * `POST /shopify_webhooks` with `action=delete`: deletes the account's webhooks with each item's `event_type` and
+     * `destination_url`. A webhook that does not exist is not an error. Allowed on a closed or suspended account (so
+     * an uninstall can clean up).
+     *
+     * Answers `{result: true, webhooks: {<event_type>: "deleted"|"missing"}}`.
+     *
+     * @param list<array{event_type: string, destination_url: string, json?: string|null}> $webhooks 1 to 20 items; `json` is not sent
+     * @param string|null                                                                   $shop     optional `*.myshopify.com` domain
+     *
+     * @return array{result: bool, webhooks: array<string, string>}
+     *
+     * @throws ValidationException
+     * @throws UnauthorizedException
+     * @throws CustomerNotFoundException
+     * @throws MethodNotAllowedException
+     * @throws ApiException
+     * @throws JsonException
+     * @throws GuzzleException
+     */
+    public function deleteShopifyWebhooks(array $webhooks, ?string $shop = null): array
+    {
+        return $this->shopifyWebhooks([
+            'action' => ShopifyWebhooks::ACTION_DELETE,
+            'webhooks' => $webhooks,
+            'shop' => $shop,
+        ]);
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     *
+     * @return array<string, mixed>
+     */
+    private function shopifyWebhooks(array $data): array
+    {
+        // The platform accepts http:// destinations only when it runs locally; a plain-http REST URL means a local one.
+        $data['allow_http'] = str_starts_with(strtolower($this->context->config->restUrl()), 'http://');
+        $dto = ShopifyWebhooks::validateAndCreate($data);
+
+        return $this->context->rest->post('/shopify_webhooks', $dto->toApiPayload());
     }
 }
