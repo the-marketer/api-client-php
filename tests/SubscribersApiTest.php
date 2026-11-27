@@ -12,6 +12,7 @@ use GuzzleHttp\Psr7\Response;
 use JsonException;
 use NotificationService\Sdk\Internal\SubscribersApi;
 use TheMarketer\ApiClient\Common\Config;
+use TheMarketer\ApiClient\DTO\Subscribers\SubscriberValidator;
 use TheMarketer\ApiClient\Exception\ValidationException;
 
 final class SubscribersApiTest extends TestCase
@@ -555,5 +556,103 @@ final class SubscribersApiTest extends TestCase
         $this->assertStringEndsWith('/add_subscriber', $request->getUri()->getPath());
         $body = json_decode((string) $request->getBody(), true, 512, JSON_THROW_ON_ERROR);
         $this->assertSame(['email' => 'alias@example.com'], $body);
+    }
+
+    /**
+     * @return iterable<string, array{0: array<string, mixed>, 1: array<string, mixed>}>
+     */
+    public static function newSubscriberFields(): iterable
+    {
+        yield 'county' => [['county' => 'Cluj'], ['county' => 'Cluj']];
+        yield 'remove_tags' => [['remove_tags' => 'lead,trial'], ['remove_tags' => 'lead,trial']];
+        yield 'no_double_optin as "1"' => [['no_double_optin' => '1'], ['no_double_optin' => 1]];
+        yield 'no_double_optin as true' => [['no_double_optin' => true], ['no_double_optin' => 1]];
+        yield 'pretend_double_opt_in_is as "0" is kept' => [['pretend_double_opt_in_is' => '0'], ['pretend_double_opt_in_is' => 0]];
+        yield 'pretend_double_opt_in_is as false is kept' => [['pretend_double_opt_in_is' => false], ['pretend_double_opt_in_is' => 0]];
+        yield 'pretend_double_opt_in_is as 1' => [['pretend_double_opt_in_is' => 1], ['pretend_double_opt_in_is' => 1]];
+    }
+
+    /**
+     * @param array<string, mixed> $field
+     * @param array<string, mixed> $sent
+     *
+     * @throws GuzzleException
+     * @throws JsonException
+     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('newSubscriberFields')]
+    public function testNewSubscriberFieldsReachEveryAddSubscriberPath(array $field, array $sent): void
+    {
+        [$api, $container] = $this->apiWithMockResponses(
+            new Response(200, [], '{"result":true}'),
+            new Response(200, [], '{"result":true}'),
+            new Response(200, [], '{"result":true}'),
+        );
+
+        $api->addSubscriber(['email' => 'a@x.com'] + $field);
+        $api->addSubscriberAsync(['email' => 'a@x.com'] + $field);
+        $api->addSubscriberBulk([['email' => 'a@x.com'] + $field, ['email' => 'b@x.com']]);
+
+        [$sync, $async, $bulk] = array_map(
+            static fn($request): array => json_decode((string) $request->getBody(), true, 512, JSON_THROW_ON_ERROR),
+            $container->requests,
+        );
+
+        $this->assertSame(['email' => 'a@x.com'] + $sent, $sync);
+        $this->assertSame(['email' => 'a@x.com'] + $sent, $async);
+        $this->assertSame([['email' => 'a@x.com'] + $sent, ['email' => 'b@x.com']], $bulk);
+    }
+
+    public function testSubscriberValidatorPayloadHasTheNewFields(): void
+    {
+        $payload = SubscriberValidator::validateAndCreate([
+            'email' => 'a@x.com',
+            'city' => 'Cluj-Napoca',
+            'county' => 'Cluj',
+            'add_tags' => 'vip',
+            'remove_tags' => 'lead',
+            'no_double_optin' => 1,
+            'pretend_double_opt_in_is' => 0,
+        ])->toApiPayload();
+
+        $this->assertSame('Cluj', $payload['county']);
+        $this->assertSame('lead', $payload['remove_tags']);
+        $this->assertSame(1, $payload['no_double_optin']);
+        $this->assertSame(0, $payload['pretend_double_opt_in_is']);
+    }
+
+    public function testAddSubscriberOmitsEmptyNewFields(): void
+    {
+        $payload = SubscriberValidator::validateAndCreate([
+            'email' => 'a@x.com',
+            'county' => '',
+            'remove_tags' => null,
+            'no_double_optin' => '',
+        ])->toApiPayload();
+
+        $this->assertSame(['email' => 'a@x.com'], $payload);
+    }
+
+    public function testAddSubscriberRejectsDoubleOptInFlagOutsideZeroOrOne(): void
+    {
+        [$api] = $this->apiWithMockResponses();
+
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('no_double_optin must be 0 or 1.');
+
+        $api->addSubscriber(['email' => 'a@x.com', 'no_double_optin' => 2]);
+    }
+
+    public function testAddSubscriberBulkRejectsUnknownRowKey(): void
+    {
+        [$api, $container] = $this->apiWithMockResponses();
+
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('unknown field(s): province');
+
+        try {
+            $api->addSubscriberBulk([['email' => 'a@x.com', 'province' => 'Cluj']]);
+        } finally {
+            $this->assertSame([], $container->requests);
+        }
     }
 }

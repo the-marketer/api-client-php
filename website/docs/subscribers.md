@@ -19,15 +19,22 @@ Adds or updates a subscriber via the **synchronous** endpoint (`/add_subscriber_
 
 - `payload` (`array<string, mixed>`):
   - `email` (`string`, required)
-  - `add_tags` (`?string`)
+  - `add_tags` (`?string`): comma-separated tag names to add
+  - `remove_tags` (`?string`): comma-separated tag names to remove (never creates a tag)
   - `firstname` (`?string`)
   - `lastname` (`?string`)
+  - `name` (`?string`)
   - `phone` (`?string`)
   - `city` (`?string`)
+  - `county` (`?string`)
   - `country` (`?string`)
   - `birthday` (`?string`)
   - `channels` (`?string`)
-  - `attributes` (`?array`)
+  - `attributes` (`?array`): custom attributes, free-form keys
+  - `no_double_optin` (`0|1|bool|"0"|"1"|null`, sent as `0`/`1`): `1` = no double opt-in confirmation mail for this call
+  - `pretend_double_opt_in_is` (`0|1|bool|"0"|"1"|null`, sent as `0`/`1`, `0` is sent): overrides the account's double opt-in setting for this call; `0` subscribes the contact now even when the account has double opt-in on (with `no_double_optin=1` alone the contact stays unsubscribed under double opt-in)
+
+Empty values are left out of the body (except `pretend_double_opt_in_is=0`). A key not listed here throws `ValidationException` (`unknown field(s): …`).
 
 **Response**
 
