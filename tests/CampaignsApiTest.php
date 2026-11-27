@@ -239,4 +239,94 @@ final class CampaignsApiTest extends TestCase
 
         $api->getLatestCampaign(0);
     }
+
+    /**
+     * @throws GuzzleException
+     * @throws \JsonException
+     */
+    public function testListSendsFiltersAsObjectAndPageLimitAsInts(): void
+    {
+        [$api, $container] = $this->apiWithMockResponses(new Response(200, [], '{"data":[]}'));
+
+        $api->list([
+            'filters' => ['status' => ['scheduled'], 'send_at_from' => '2026-11-01', 'send_at_to' => '2026-11-30'],
+            'page' => '2',
+            'limit' => 50,
+        ]);
+
+        $request = $this->lastRequest($container);
+        $this->assertStringContainsString('"filters":{', (string) $request->getBody());
+        $body = json_decode((string) $request->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame([
+            'page' => 2,
+            'limit' => 50,
+            'filters' => ['status' => ['scheduled'], 'send_at_from' => '2026-11-01', 'send_at_to' => '2026-11-30'],
+        ], $body);
+    }
+
+    /**
+     * @throws GuzzleException
+     * @throws \JsonException
+     */
+    public function testListDecodesJsonStringFilters(): void
+    {
+        [$api, $container] = $this->apiWithMockResponses(new Response(200, [], '{"data":[]}'));
+
+        $api->list(['filters' => '{"type":"email","search":"Spring"}']);
+
+        $body = json_decode((string) $this->lastRequest($container)->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame(['filters' => ['type' => 'email', 'search' => 'Spring']], $body);
+    }
+
+    /**
+     * @throws GuzzleException
+     * @throws \JsonException
+     */
+    public function testListMovesTopLevelSearchIntoFilters(): void
+    {
+        [$api, $container] = $this->apiWithMockResponses(new Response(200, [], '{"data":[]}'));
+
+        $api->list(['search' => 'Spring', 'type' => 'sms', 'filters' => ['type' => 'email']]);
+
+        $body = json_decode((string) $this->lastRequest($container)->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame(['filters' => ['type' => 'email', 'search' => 'Spring']], $body);
+    }
+
+    public function testListRejectsInvalidJsonFilters(): void
+    {
+        [$api] = $this->apiWithMockResponses();
+
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('filters');
+
+        $api->list(['filters' => '{not json']);
+    }
+
+    public function testListRejectsListFilters(): void
+    {
+        [$api] = $this->apiWithMockResponses();
+
+        $this->expectException(ValidationException::class);
+
+        $api->list(['filters' => ['scheduled']]);
+    }
+
+    public function testListRejectsNonNumericPage(): void
+    {
+        [$api] = $this->apiWithMockResponses();
+
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('page: must be an integer.');
+
+        $api->list(['page' => 'two']);
+    }
+
+    public function testListRejectsZeroLimit(): void
+    {
+        [$api] = $this->apiWithMockResponses();
+
+        $this->expectException(ValidationException::class);
+
+        $api->list(['limit' => 0]);
+    }
 }

@@ -12,6 +12,7 @@ use GuzzleHttp\Psr7\Response;
 use JsonException;
 use NotificationService\Sdk\Internal\SubscribersApi;
 use TheMarketer\ApiClient\Common\Config;
+use TheMarketer\ApiClient\DTO\Subscribers\SubscriberValidator;
 use TheMarketer\ApiClient\Exception\ValidationException;
 
 final class SubscribersApiTest extends TestCase
@@ -555,5 +556,379 @@ final class SubscribersApiTest extends TestCase
         $this->assertStringEndsWith('/add_subscriber', $request->getUri()->getPath());
         $body = json_decode((string) $request->getBody(), true, 512, JSON_THROW_ON_ERROR);
         $this->assertSame(['email' => 'alias@example.com'], $body);
+    }
+
+    /**
+     * @return iterable<string, array{0: array<string, mixed>, 1: array<string, mixed>}>
+     */
+    public static function newSubscriberFields(): iterable
+    {
+        yield 'county' => [['county' => 'Cluj'], ['county' => 'Cluj']];
+        yield 'remove_tags' => [['remove_tags' => 'lead,trial'], ['remove_tags' => 'lead,trial']];
+        yield 'no_double_optin as "1"' => [['no_double_optin' => '1'], ['no_double_optin' => 1]];
+        yield 'no_double_optin as true' => [['no_double_optin' => true], ['no_double_optin' => 1]];
+        yield 'pretend_double_opt_in_is as "0" is kept' => [['pretend_double_opt_in_is' => '0'], ['pretend_double_opt_in_is' => 0]];
+        yield 'pretend_double_opt_in_is as false is kept' => [['pretend_double_opt_in_is' => false], ['pretend_double_opt_in_is' => 0]];
+        yield 'pretend_double_opt_in_is as 1' => [['pretend_double_opt_in_is' => 1], ['pretend_double_opt_in_is' => 1]];
+    }
+
+    /**
+     * @param array<string, mixed> $field
+     * @param array<string, mixed> $sent
+     *
+     * @throws GuzzleException
+     * @throws JsonException
+     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('newSubscriberFields')]
+    public function testNewSubscriberFieldsReachEveryAddSubscriberPath(array $field, array $sent): void
+    {
+        [$api, $container] = $this->apiWithMockResponses(
+            new Response(200, [], '{"result":true}'),
+            new Response(200, [], '{"result":true}'),
+            new Response(200, [], '{"result":true}'),
+        );
+
+        $api->addSubscriber(['email' => 'a@x.com'] + $field);
+        $api->addSubscriberAsync(['email' => 'a@x.com'] + $field);
+        $api->addSubscriberBulk([['email' => 'a@x.com'] + $field, ['email' => 'b@x.com']]);
+
+        [$sync, $async, $bulk] = array_map(
+            static fn($request): array => json_decode((string) $request->getBody(), true, 512, JSON_THROW_ON_ERROR),
+            $container->requests,
+        );
+
+        $this->assertSame(['email' => 'a@x.com'] + $sent, $sync);
+        $this->assertSame(['email' => 'a@x.com'] + $sent, $async);
+        $this->assertSame([['email' => 'a@x.com'] + $sent, ['email' => 'b@x.com']], $bulk);
+    }
+
+    public function testSubscriberValidatorPayloadHasTheNewFields(): void
+    {
+        $payload = SubscriberValidator::validateAndCreate([
+            'email' => 'a@x.com',
+            'city' => 'Cluj-Napoca',
+            'county' => 'Cluj',
+            'add_tags' => 'vip',
+            'remove_tags' => 'lead',
+            'no_double_optin' => 1,
+            'pretend_double_opt_in_is' => 0,
+        ])->toApiPayload();
+
+        $this->assertSame('Cluj', $payload['county']);
+        $this->assertSame('lead', $payload['remove_tags']);
+        $this->assertSame(1, $payload['no_double_optin']);
+        $this->assertSame(0, $payload['pretend_double_opt_in_is']);
+    }
+
+    public function testAddSubscriberOmitsEmptyNewFields(): void
+    {
+        $payload = SubscriberValidator::validateAndCreate([
+            'email' => 'a@x.com',
+            'county' => '',
+            'remove_tags' => null,
+            'no_double_optin' => '',
+        ])->toApiPayload();
+
+        $this->assertSame(['email' => 'a@x.com'], $payload);
+    }
+
+    public function testAddSubscriberRejectsDoubleOptInFlagOutsideZeroOrOne(): void
+    {
+        [$api] = $this->apiWithMockResponses();
+
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('no_double_optin must be 0 or 1.');
+
+        $api->addSubscriber(['email' => 'a@x.com', 'no_double_optin' => 2]);
+    }
+
+    public function testAddSubscriberBulkRejectsUnknownRowKey(): void
+    {
+        [$api, $container] = $this->apiWithMockResponses();
+
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('unknown field(s): province');
+
+        try {
+            $api->addSubscriberBulk([['email' => 'a@x.com', 'province' => 'Cluj']]);
+        } finally {
+            $this->assertSame([], $container->requests);
+        }
+    }
+
+    /**
+     * @throws GuzzleException
+     * @throws JsonException
+     */
+    public function testSourceConnectorIsSentInTheBodyOfAddSubscriberAndAddSubscriberAsync(): void
+    {
+        [$api, $container] = $this->apiWithMockResponses(
+            new Response(200, [], '{"result":true}'),
+            new Response(200, [], '{"result":true}'),
+        );
+
+        $api->addSubscriber(['email' => 'a@x.com', 'source' => 'connector']);
+        $api->addSubscriberAsync(['email' => 'a@x.com', 'source' => 'connector']);
+
+        foreach ($container->requests as $request) {
+            $body = json_decode((string) $request->getBody(), true, 512, JSON_THROW_ON_ERROR);
+            $this->assertSame(['email' => 'a@x.com', 'source' => 'connector'], $body);
+        }
+        $this->assertStringEndsWith('/add_subscriber_sync', $container->requests[0]->getUri()->getPath());
+        $this->assertStringEndsWith('/add_subscriber', $container->requests[1]->getUri()->getPath());
+    }
+
+    /**
+     * @throws GuzzleException
+     * @throws JsonException
+     */
+    public function testAddSubscriberBulkSendsSourceOnceInTheQueryString(): void
+    {
+        [$api, $container] = $this->apiWithMockResponses(new Response(200, [], '{"result":true,"queued":2}'));
+
+        $api->addSubscriberBulk([['email' => 'a@x.com'], ['email' => 'b@x.com']], 'connector');
+
+        $request = $this->lastRequest($container);
+        parse_str($request->getUri()->getQuery(), $query);
+        $this->assertSame('connector', $query['source']);
+        $this->assertSame(self::MOCK_API_KEY, $query['k']);
+
+        $body = json_decode((string) $request->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame([['email' => 'a@x.com'], ['email' => 'b@x.com']], $body);
+    }
+
+    public function testAddSubscriberBulkWithoutSourceSendsNoSourceQuery(): void
+    {
+        [$api, $container] = $this->apiWithMockResponses(new Response(200, [], '{"result":true}'));
+
+        $api->addSubscriberBulk([['email' => 'a@x.com']]);
+
+        parse_str($this->lastRequest($container)->getUri()->getQuery(), $query);
+        $this->assertArrayNotHasKey('source', $query);
+    }
+
+    /**
+     * @throws GuzzleException
+     * @throws JsonException
+     */
+    public function testRemoveSubscriberSendsSourceInTheBody(): void
+    {
+        [$api, $container] = $this->apiWithMockResponses(new Response(200, [], '{"result":true}'));
+
+        $api->removeSubscriber('a@x.com', 'email', 'connector');
+
+        $body = json_decode((string) $this->lastRequest($container)->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame(['email' => 'a@x.com', 'channels' => 'email', 'source' => 'connector'], $body);
+    }
+
+    /**
+     * @throws GuzzleException
+     * @throws JsonException
+     */
+    public function testRemoveSubscriberSourceWithoutChannels(): void
+    {
+        [$api, $container] = $this->apiWithMockResponses(new Response(200, [], '{"result":true}'));
+
+        $api->removeSubscriber('a@x.com', source: 'connector');
+
+        $body = json_decode((string) $this->lastRequest($container)->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame(['email' => 'a@x.com', 'source' => 'connector'], $body);
+    }
+
+    /**
+     * @throws GuzzleException
+     * @throws JsonException
+     */
+    public function testContactsSendsGetWithPageAndSearch(): void
+    {
+        $answer = ['data' => [['email' => 'a@x.com']], 'total' => 1, 'current_page' => 2, 'per_page' => 15];
+        [$api, $container] = $this->apiWithMockResponses(new Response(200, [], json_encode($answer)));
+
+        $this->assertSame($answer, $api->contacts(2, '  ana  '));
+
+        $request = $this->lastRequest($container);
+        $this->assertSame('GET', $request->getMethod());
+        $this->assertStringEndsWith('/api/v1/contacts', $request->getUri()->getPath());
+        parse_str($request->getUri()->getQuery(), $query);
+        $this->assertSame(['k' => self::MOCK_API_KEY, 'u' => self::MOCK_DOMAIN, 'page' => '2', 'search' => 'ana'], $query);
+        $this->assertSame('', (string) $request->getBody());
+    }
+
+    public function testContactsDefaultsToPageOneWithoutSearch(): void
+    {
+        [$api, $container] = $this->apiWithMockResponses(new Response(200, [], '{"data":[]}'));
+
+        $api->contacts(search: '   ');
+
+        parse_str($this->lastRequest($container)->getUri()->getQuery(), $query);
+        $this->assertSame('1', $query['page']);
+        $this->assertArrayNotHasKey('search', $query);
+    }
+
+    public function testContactsRejectsPageBelowOne(): void
+    {
+        [$api, $container] = $this->apiWithMockResponses();
+
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('page must be 1 or more.');
+
+        $api->contacts(0);
+    }
+
+    public function testContactsRejectsSearchLongerThan200Characters(): void
+    {
+        [$api] = $this->apiWithMockResponses();
+
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('search must be at most 200 characters.');
+
+        $api->contacts(1, str_repeat('ă', 201));
+    }
+
+    public function testContactsAcceptsSearchOf200MultibyteCharacters(): void
+    {
+        [$api, $container] = $this->apiWithMockResponses(new Response(200, [], '{"data":[]}'));
+
+        $api->contacts(1, str_repeat('ă', 200));
+
+        parse_str($this->lastRequest($container)->getUri()->getQuery(), $query);
+        $this->assertSame(str_repeat('ă', 200), $query['search']);
+    }
+
+    /**
+     * @throws GuzzleException
+     * @throws JsonException
+     */
+    public function testAudienceStatisticsSendsGet(): void
+    {
+        $answer = ['subscribed' => 10, 'active' => 7, 'inactive' => 3, 'bounced' => 1, 'cleaned' => 0, 'manually_unsubscribed' => 2];
+        [$api, $container] = $this->apiWithMockResponses(new Response(200, [], json_encode($answer)));
+
+        $this->assertSame($answer, $api->audienceStatistics());
+
+        $request = $this->lastRequest($container);
+        $this->assertSame('GET', $request->getMethod());
+        $this->assertStringEndsWith('/api/v1/audience-statistics', $request->getUri()->getPath());
+        parse_str($request->getUri()->getQuery(), $query);
+        $this->assertSame(['k' => self::MOCK_API_KEY, 'u' => self::MOCK_DOMAIN], $query);
+    }
+
+    /**
+     * @throws GuzzleException
+     * @throws JsonException
+     */
+    public function testSmsConsentPostsTheFullContract(): void
+    {
+        [$api, $container] = $this->apiWithMockResponses(new Response(200, [], '{"result":true,"outcome":"subscribed"}'));
+
+        $result = $api->smsConsent(
+            '+40700000001',
+            'subscribed',
+            'ana@example.com',
+            'Ana',
+            'Pop',
+            '2026-11-27T10:15:00Z',
+            'connector',
+        );
+
+        $this->assertSame(['result' => true, 'outcome' => 'subscribed'], $result);
+
+        $request = $this->lastRequest($container);
+        $this->assertSame('POST', $request->getMethod());
+        $this->assertStringEndsWith('/api/v1/sms_consent', $request->getUri()->getPath());
+        parse_str($request->getUri()->getQuery(), $query);
+        $this->assertSame(['k' => self::MOCK_API_KEY, 'u' => self::MOCK_DOMAIN], $query);
+
+        $body = json_decode((string) $request->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame([
+            'phone' => '+40700000001',
+            'state' => 'subscribed',
+            'email' => 'ana@example.com',
+            'firstname' => 'Ana',
+            'lastname' => 'Pop',
+            'consent_updated_at' => '2026-11-27T10:15:00Z',
+            'source' => 'connector',
+        ], $body);
+    }
+
+    /**
+     * @throws GuzzleException
+     * @throws JsonException
+     */
+    public function testSmsConsentSendsOnlyPhoneAndStateWhenNothingElseIsKnown(): void
+    {
+        [$api, $container] = $this->apiWithMockResponses(new Response(200, [], '{"result":true,"outcome":"missing"}'));
+
+        $this->assertSame('missing', $api->smsConsent(' +40700000001 ', 'unsubscribed', '', '  ')['outcome']);
+
+        $body = json_decode((string) $this->lastRequest($container)->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame(['phone' => '+40700000001', 'state' => 'unsubscribed'], $body);
+    }
+
+    public function testSmsConsentFormatsADateTime(): void
+    {
+        [$api, $container] = $this->apiWithMockResponses(new Response(200, [], '{"result":true,"outcome":"stale"}'));
+
+        $api->smsConsent('+40700000001', 'subscribed', consentUpdatedAt: new \DateTimeImmutable('2026-11-27 12:15:00', new \DateTimeZone('Europe/Bucharest')));
+
+        $body = json_decode((string) $this->lastRequest($container)->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame('2026-11-27T12:15:00.000+02:00', $body['consent_updated_at']);
+    }
+
+    /**
+     * @return iterable<string, array{0: array<string, mixed>, 1: string}>
+     */
+    public static function invalidSmsConsents(): iterable
+    {
+        yield 'blank phone' => [['phone' => '  ', 'state' => 'subscribed'], 'phone'];
+        yield 'phone too long' => [['phone' => str_repeat('1', 33), 'state' => 'subscribed'], 'phone'];
+        yield 'unknown state' => [['phone' => '+40700000001', 'state' => 'pending'], 'state must be subscribed or unsubscribed.'];
+        yield 'invalid email' => [['phone' => '+40700000001', 'state' => 'subscribed', 'email' => 'not-an-email'], 'email'];
+        yield 'firstname too long' => [['phone' => '+40700000001', 'state' => 'subscribed', 'firstname' => str_repeat('a', 256)], 'firstname'];
+        yield 'lastname too long' => [['phone' => '+40700000001', 'state' => 'subscribed', 'lastname' => str_repeat('a', 256)], 'lastname'];
+        yield 'date without time' => [['phone' => '+40700000001', 'state' => 'subscribed', 'consentUpdatedAt' => '2026-11-27'], 'consent_updated_at'];
+        yield 'date without offset' => [['phone' => '+40700000001', 'state' => 'subscribed', 'consentUpdatedAt' => '2026-11-27T10:15:00'], 'consent_updated_at'];
+        yield 'impossible date' => [['phone' => '+40700000001', 'state' => 'subscribed', 'consentUpdatedAt' => '2026-02-30T10:15:00Z'], 'consent_updated_at'];
+        yield 'not a date' => [['phone' => '+40700000001', 'state' => 'subscribed', 'consentUpdatedAt' => 'yesterday'], 'consent_updated_at'];
+    }
+
+    /**
+     * @param array<string, mixed> $args
+     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('invalidSmsConsents')]
+    public function testSmsConsentRejectsInvalidInput(array $args, string $message): void
+    {
+        [$api, $container] = $this->apiWithMockResponses();
+
+        try {
+            $api->smsConsent(...$args);
+            $this->fail('Invalid input must throw.');
+        } catch (ValidationException $e) {
+            $this->assertStringContainsString($message, $e->getMessage());
+        }
+
+        $this->assertSame([], $container->requests);
+    }
+
+    /**
+     * @return iterable<string, array{0: string}>
+     */
+    public static function validConsentDates(): iterable
+    {
+        yield 'Z' => ['2026-11-27T10:15:00Z'];
+        yield 'offset' => ['2026-11-27T12:15:00+02:00'];
+        yield 'fraction' => ['2026-11-27T10:15:00.123456Z'];
+        yield 'no seconds' => ['2026-11-27T10:15Z'];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('validConsentDates')]
+    public function testSmsConsentAcceptsIso8601DateTimes(string $date): void
+    {
+        [$api, $container] = $this->apiWithMockResponses(new Response(200, [], '{"result":true,"outcome":"unchanged"}'));
+
+        $api->smsConsent('+40700000001', 'subscribed', consentUpdatedAt: $date);
+
+        $body = json_decode((string) $this->lastRequest($container)->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame($date, $body['consent_updated_at']);
     }
 }

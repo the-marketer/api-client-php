@@ -52,16 +52,21 @@ Creates or syncs an order using the standard payload format.
   - `shipping` (`float`, required)
   - `tax` (`float`, required)
   - `total_value` (`float`, required)
+  - `currency` (`?string`, omitted when empty) — the order's ISO 4217 code, 3 uppercase letters (`RON`, `EUR`)
+  - `refund_value` (`?float`, `>= 0`, omitted when not given) — the amount refunded so far
   - `products` (`list<array<string, mixed>>`, required, min 1)
     - `product_id` (`int|string`, required, sent as given) — your product id or the product SKU: the platform looks up the id first, then the SKU
     - `price` (`float`, required)
     - `sale_price` (`?float`, omitted when empty) — the price paid per unit; the platform uses it instead of `price` when present
     - `quantity` (`int`, required)
     - `variation_sku` (`?string`, omitted when empty; not read by the platform)
+    - `variation` (`?array`, omitted when empty) — the variant bought, stored by the platform as sent:
+      - `id` (`int|string`, required inside `variation`)
+      - `sku` (`int|string|null`, omitted when empty)
 
 Leave `discount_code` out when there is no code: the platform uses it as a pattern on coupons, so a placeholder such as `-` matches real coupons.
 
-**Changed in 0.2.0:** `number` and line `product_id` are sent as given (a numeric string is no longer converted to `int`); line `product_id` accepts text (a SKU); `store_*` and line `sale_price` are new optional fields.
+**Changed in 0.2.0:** `number` and line `product_id` are sent as given (a numeric string is no longer converted to `int`); line `product_id` accepts text (a SKU); `store_*`, `currency`, `refund_value`, line `sale_price` and line `variation` are new optional fields. A key the DTO does not know (on the order, a line or a variation) throws `ValidationException` (`unknown field(s): …`) instead of being dropped.
 
 **Response**
 
@@ -86,7 +91,7 @@ $result = $ordersApi->saveOrder([
             'product_id' => 123,
             'price' => 99.99,
             'quantity' => 1,
-            'variation_sku' => 'SKU-123',
+            'variation' => ['id' => 'gid-123', 'sku' => 'SKU-123'],
         ],
     ],
 ]);
@@ -181,18 +186,28 @@ $result = $ordersApi->updateOrderFeedUrl(
 
 ## `updateOrderStatus`
 
-Updates the status of an existing order.
+Updates the status of an existing order. Uses **POST** `/update_order_status` with a JSON body (since 0.2.0; it was a GET).
 
 **Input**
 
-- `order_number` (`string`): the order identifier.
+- `order_number` (`int|string`): the order's `number`, as sent to `saveOrder` (compared as text).
 - `order_status` (`string`): the new status to set.
 
 **Response**
 
-- `array`
+- `array`: the platform queues the change and answers `true`, decoded as `[]`.
+
+**Errors**
+
+- Unknown `order_number`: the platform answers 404 and the client throws `CustomerNotFoundException` with the message `Order not found.` (the 404 mapping is shared by every endpoint).
+- Invalid fields: 422, thrown as `ApiException` (code 422).
 
 ```php
-$result = $ordersApi->updateOrderStatus('1001', 'shipped');
-```
+use TheMarketer\ApiClient\Exception\CustomerNotFoundException;
 
+try {
+    $ordersApi->updateOrderStatus('1001', 'shipped');
+} catch (CustomerNotFoundException $e) {
+    // the order was never sent with saveOrder()
+}
+```

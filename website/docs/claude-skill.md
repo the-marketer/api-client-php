@@ -12,7 +12,7 @@ This page covers the **PHP** skill. If you work with the Node.js package, there 
 
 ## What the skill helps with
 
-- Correct PHP for all client modules (`orders()`, `subscribers()`, `campaigns()`, `products()`, `transactionals()`, `reports()`, `events()`, `coupons()`, `loyalty()`, `reviews()`, `mobilePush()`, and related utilities).
+- Correct PHP for all client modules (`orders()`, `subscribers()`, `campaigns()`, `products()`, `transactionals()`, `reports()`, `events()`, `coupons()`, `loyalty()`, `reviews()`, `mobilePush()`, `account()`, and related utilities).
 - Choosing the **REST gateway** vs **tracking gateway** appropriately.
 - Payload fields: names, types, required vs optional, and enums where applicable.
 - Laravel: service provider, facade, and the `themarketer` mail transport.

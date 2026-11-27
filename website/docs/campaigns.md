@@ -19,26 +19,36 @@ Lists campaigns with optional filters. Uses **POST** to `/campaigns/list` with a
 
 **Input**
 
-- `payload` (`array<string, mixed>`, optional; default `[]`). All keys are optional strings; empty values are omitted from the body:
-  - `filters` (`?string`)
-  - `search` (`?string`)
-  - `type` (`?string`)
-  - `start_date` (`?string`)
-  - `page` (`?string`)
-  - `limit` (`?string`)
+- `payload` (`array<string, mixed>`, optional; default `[]`); empty values are omitted from the body:
+  - `filters` (`array|string|null`): sent as a JSON **object**; a JSON object string is decoded first (invalid JSON or a list throws `ValidationException`). Keys the platform reads, all optional (others are ignored):
+    - `search` (`string`): part of the campaign name
+    - `type` (`string`): e.g. `email`, `sms`, `push`
+    - `start_date` (date): `sent_at` from
+    - `status` (`string|list<string>`): e.g. `['sent']`; `scheduled` is a pseudo-status for future campaigns (and sorts by `send_at` ascending)
+    - `send_at_from` / `send_at_to` (ISO date or date-time): `send_at` range; a bare date as `send_at_to` covers the whole day
+  - `search`, `type`, `start_date` (`?string`): accepted at the top level for older callers and moved into `filters` (the platform reads them only there; a value already in `filters` wins)
+  - `page` (`int|string|null`, >= 1, default 1)
+  - `limit` (`int|string|null`, >= 1, default 20; the platform caps it at 100)
+
+Deleted campaigns are never listed.
+
+**Changed in 0.2.0:** `filters` is sent as an object (it was a string), `page`/`limit` accept ints and are sent as ints, and the top-level `search`/`type`/`start_date` (which the platform ignored) now reach it inside `filters`.
 
 **Response**
 
-- `array`
+- `array`: `{data, total, page, limit, pages}`; each campaign has `_id`, `status`, `name`, `type`, `variant`, `send_at`, `sent_at`, `num_sent`, `recipients`, `segment {id, name}`, `audience_type`, `subject`, `preview`, `sender` and more.
 
 ```php
 $result = $campaignsApi->list();
 
 $result = $campaignsApi->list([
-    'search' => 'spring',
-    'type' => 'email',
-    'page' => '1',
-    'limit' => '20',
+    'filters' => [
+        'status' => ['scheduled'],
+        'send_at_from' => '2026-11-01',
+        'send_at_to' => '2026-11-30',
+    ],
+    'page' => 1,
+    'limit' => 20,
 ]);
 ```
 
@@ -145,7 +155,7 @@ Returns the latest campaign data. Uses **GET** `/get-latest-campaign`.
 
 **Response**
 
-- `array` (decoded JSON; shape depends on API)
+- `array`: the latest sent campaign, `{id, type, status, subject_line, sent_at, audience_type, audience_segment, audience_name, stats}` (every key `null` when the account has sent none). With `limit`, a list of up to 10 such campaigns.
 
 ```php
 $result = $campaignsApi->getLatestCampaign();

@@ -51,7 +51,7 @@ class CreateCampaign extends AbstractPayload
             $data[$key] = $class::validateAndCreate($nested);
         }
 
-        $instance = new static(...$data);
+        $instance = static::construct($data);
         $instance->validate();
 
         return $instance;

@@ -19,6 +19,7 @@ use TheMarketer\ApiClient\Client;
  * @method static \NotificationService\Sdk\Internal\MobilePushApi mobilePush()
  * @method static \NotificationService\Sdk\Internal\EventsApi events()
  * @method static \NotificationService\Sdk\Internal\ReportsApi reports()
+ * @method static \NotificationService\Sdk\Internal\AccountApi account()
  * @method static \TheMarketer\ApiClient\Common\Config config()
  *
  * @see Client

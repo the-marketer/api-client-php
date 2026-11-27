@@ -28,6 +28,7 @@ Appears when payload input is invalid before request execution, or when required
 Typical causes:
 
 - missing required fields in payload
+- a payload key the DTO does not know (`unknown field(s): foo, bar`; since 0.2.0 unknown keys are no longer dropped silently)
 - invalid email format
 - invalid enum/choice values
 - invalid date format

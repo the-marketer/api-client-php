@@ -8,7 +8,7 @@ Acest modul acoperă sincronizarea comenzilor, statusul, feed-uri și statistici
 $ordersApi = $client->orders();
 ```
 
-Nu există metode `save()` sau aliasuri scurtate — folosește `saveOrder()` / `saveOrderRetail()` cu câmpurile din DTO (`number`, `email_address`, linii produs cu `variation_sku`, etc.).
+Nu există metode `save()` sau aliasuri scurtate — folosește `saveOrder()` / `saveOrderRetail()` cu câmpurile din DTO (`number`, `email_address`, linii produs cu `variation` `{id, sku}`, etc.). O cheie necunoscută aruncă `ValidationException` (`unknown field(s): …`).
 
 ## saveOrder (exemplu minim)
 

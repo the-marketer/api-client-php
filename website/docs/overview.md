@@ -43,6 +43,7 @@ Base URL for REST is built as `{restUrl}/api/{apiVersion}/` (default `apiVersion
 - [`loyalty()`](./loyalty.md)
 - [`reviews()`](./reviews.md)
 - [`mobilePush()` (mobile push)](./app-push.md)
+- [`account()` (plan, allowed domains, dashboard blocks, email DNS)](./account.md)
 
 Utilities:
 

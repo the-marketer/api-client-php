@@ -4,14 +4,17 @@ declare(strict_types=1);
 
 namespace NotificationService\Sdk\Internal;
 
+use DateTimeInterface;
 use GuzzleHttp\Exception\GuzzleException;
 use JsonException;
 use TheMarketer\ApiClient\Common\AbstractApi;
 use TheMarketer\ApiClient\DTO\Subscribers\AddSubscriberBulk;
 use TheMarketer\ApiClient\DTO\Subscribers\AddSubscriberByPhone;
 use TheMarketer\ApiClient\DTO\Subscribers\DeleteSubscriber;
+use TheMarketer\ApiClient\DTO\Subscribers\ListContacts;
 use TheMarketer\ApiClient\DTO\Subscribers\ListSubscribersDateRange;
 use TheMarketer\ApiClient\DTO\Subscribers\RemoveSubscriber;
+use TheMarketer\ApiClient\DTO\Subscribers\SmsConsent;
 use TheMarketer\ApiClient\DTO\Subscribers\EmailValidator;
 use TheMarketer\ApiClient\DTO\Subscribers\SubscriberValidator;
 use TheMarketer\ApiClient\DTO\Subscribers\UnsubscribedEmails;
@@ -120,6 +123,53 @@ class SubscribersApi extends AbstractApi
     }
 
     /**
+     * `GET /contacts`: one page of contacts, newest first (15 per page), each with `email`, `firstname`,
+     * `lastname`, `phone`, `subscribed_to_email` and `subscribed_to_sms`.
+     *
+     * @param int         $page   1 or more
+     * @param string|null $search part of the email, name or phone; trimmed, up to 200 characters, left out when empty
+     *
+     * @return array{data: list<array<string, mixed>>, total: int, current_page: int, per_page: int}
+     *
+     * @throws UnauthorizedException
+     * @throws CustomerNotFoundException
+     * @throws MethodNotAllowedException
+     * @throws ApiException
+     * @throws ValidationException
+     * @throws JsonException
+     * @throws GuzzleException
+     */
+    public function contacts(int $page = 1, ?string $search = null): array
+    {
+        $dto = ListContacts::validateAndCreate(['page' => $page, 'search' => $search]);
+
+        return $this->context->rest->get('/contacts', $dto->toApiPayload());
+    }
+
+    /**
+     * `GET /audience-statistics`: the email list's health counters, `subscribed`, `active`, `inactive`, `bounced`,
+     * `cleaned`, `manually_unsubscribed` (ints). A counter the platform fails to compute is left out, not sent as 0.
+     *
+     * @return array<string, int>
+     *
+     * @throws UnauthorizedException
+     * @throws CustomerNotFoundException
+     * @throws MethodNotAllowedException
+     * @throws ApiException
+     * @throws ValidationException
+     * @throws JsonException
+     * @throws GuzzleException
+     */
+    public function audienceStatistics(): array
+    {
+        return $this->context->rest->get('/audience-statistics');
+    }
+
+    /**
+     * `POST /add_subscriber` (queued). Same payload as {@see addSubscriber()}, including `source`.
+     *
+     * @param array<string, mixed> $payload
+     *
      * @throws UnauthorizedException
      * @throws CustomerNotFoundException
      * @throws MethodNotAllowedException
@@ -156,7 +206,12 @@ class SubscribersApi extends AbstractApi
     }
 
     /**
+     * `POST /add_subscriber_bulk`: the body is the list of rows (each validated like {@see addSubscriber()}).
+     * Answers `{result, queued, rejected, rejected_rows}`.
+     *
      * @param list<array<string, mixed>> $subscribers
+     * @param string|null                $source      `connector`: the changes are not echoed back to the connector's
+     *                                                own webhooks; sent once, in the query string
      *
      * @return array<string, mixed>
      *
@@ -168,14 +223,17 @@ class SubscribersApi extends AbstractApi
      * @throws JsonException
      * @throws GuzzleException
      */
-    public function addSubscriberBulk(array $subscribers): array
+    public function addSubscriberBulk(array $subscribers, ?string $source = null): array
     {
-        $dto = AddSubscriberBulk::validateAndCreate(['subscribers' => $subscribers]);
+        $dto = AddSubscriberBulk::validateAndCreate(['subscribers' => $subscribers, 'source' => $source]);
 
-        return $this->context->rest->post('/add_subscriber_bulk', $dto->toApiPayload());
+        return $this->context->rest->post('/add_subscriber_bulk', $dto->toApiPayload(), $dto->toQuery());
     }
 
     /**
+     * `POST /add_subscriber_sync`. Payload keys: see {@see SubscriberValidator}; `source` = `connector` means the
+     * change is not echoed back to the connector's own webhooks (the platform's only recognised value).
+     *
      * @param array<string, mixed> $payload
      *
      * @return array<string, mixed>
@@ -216,6 +274,9 @@ class SubscribersApi extends AbstractApi
     }
 
     /**
+     * @param string|null $channels comma-separated channels to unsubscribe from (`email`, `sms`, `push`, `loyalty`); all when null
+     * @param string|null $source   `connector`: the unsubscribe is not echoed back to the connector's own webhooks
+     *
      * @return array<string, mixed>
      *
      * @throws UnauthorizedException
@@ -226,11 +287,12 @@ class SubscribersApi extends AbstractApi
      * @throws GuzzleException
      * @throws JsonException
      */
-    public function removeSubscriber(string $email, ?string $channels = null): array
+    public function removeSubscriber(string $email, ?string $channels = null, ?string $source = null): array
     {
         $dto = RemoveSubscriber::validateAndCreate([
             'email' => $email,
             'channels' => $channels,
+            'source' => $source,
         ]);
 
         return $this->context->rest->post('/remove_subscriber', $dto->toApiPayload());
@@ -276,5 +338,52 @@ class SubscribersApi extends AbstractApi
         ]);
 
         return $this->context->rest->post('/update-tags', $dto->toApiPayload());
+    }
+
+    /**
+     * `POST /sms_consent`: sets a contact's SMS marketing consent, keyed by phone.
+     *
+     * Answers `{result: true, outcome}` where `outcome` is `created` (new contact), `subscribed`, `unsubscribed`,
+     * `unchanged` (already in that state), `stale` (the platform holds a newer consent than `consent_updated_at`)
+     * or `missing` (no contact to unsubscribe).
+     *
+     * @param string                        $phone            required, at most 32 characters
+     * @param string                        $state            `subscribed` or `unsubscribed`
+     * @param string|null                   $email            a valid email, when known
+     * @param string|null                   $firstname        at most 255 characters
+     * @param string|null                   $lastname         at most 255 characters
+     * @param DateTimeInterface|string|null $consentUpdatedAt when the consent changed at the source; ISO-8601 with an offset
+     * @param string|null                   $source           e.g. `connector` (no echo to the connector's own webhooks)
+     *
+     * @return array{result: bool, outcome: string}
+     *
+     * @throws UnauthorizedException
+     * @throws CustomerNotFoundException
+     * @throws MethodNotAllowedException
+     * @throws ApiException
+     * @throws ValidationException
+     * @throws JsonException
+     * @throws GuzzleException
+     */
+    public function smsConsent(
+        string $phone,
+        string $state,
+        ?string $email = null,
+        ?string $firstname = null,
+        ?string $lastname = null,
+        DateTimeInterface|string|null $consentUpdatedAt = null,
+        ?string $source = null,
+    ): array {
+        $dto = SmsConsent::validateAndCreate([
+            'phone' => $phone,
+            'state' => $state,
+            'email' => $email,
+            'firstname' => $firstname,
+            'lastname' => $lastname,
+            'consent_updated_at' => $consentUpdatedAt,
+            'source' => $source,
+        ]);
+
+        return $this->context->rest->post('/sms_consent', $dto->toApiPayload());
     }
 }

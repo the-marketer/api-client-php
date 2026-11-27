@@ -15,6 +15,8 @@ class SaveOrder extends AbstractPayload
     /**
      * @param int|string                 $number  an order number: numeric, a draft number such as `D1`, or any text such as `EU-1001`
      * @param list<SaveOrderProductLine> $products
+     * @param string|null                $currency     the order's ISO 4217 code, 3 uppercase letters (`RON`, `EUR`)
+     * @param float|null                 $refund_value the amount refunded so far, >= 0
      */
     public function __construct(
         #[Assert\NotBlank]
@@ -63,6 +65,10 @@ class SaveOrder extends AbstractPayload
         public ?string $store_city = null,
         #[Assert\Type('string')]
         public ?string $store_country = null,
+        #[Assert\Regex(pattern: '/^[A-Z]{3}$/', message: 'currency must be a 3-letter uppercase ISO 4217 code.')]
+        public ?string $currency = null,
+        #[Assert\PositiveOrZero]
+        public ?float $refund_value = null,
     ) {
     }
 
@@ -72,15 +78,18 @@ class SaveOrder extends AbstractPayload
             $data,
             [
                 'email_address', 'phone', 'city', 'county', 'address', 'discount_code', 'order_status',
-                'store_name', 'store_city', 'store_country',
+                'store_name', 'store_city', 'store_country', 'currency',
             ],
         );
         // `number` is sent as given: the platform compares it as text, so `"007"` must not become `7`.
         $data = PayloadArrayNormalizer::coerceNumericStrings(
             $data,
             [],
-            ['discount_value', 'shipping', 'tax', 'total_value'],
+            ['discount_value', 'shipping', 'tax', 'total_value', 'refund_value'],
         );
+        if (($data['currency'] ?? null) === '') {
+            $data['currency'] = null;
+        }
         $data['products'] = array_map(
             static fn(mixed $item): SaveOrderProductLine => SaveOrderProductLine::validateAndCreate(
                 is_array($item) ? $item : throw new ValidationException('Each product must be an array.'),
@@ -102,7 +111,7 @@ class SaveOrder extends AbstractPayload
     }
 
     /**
-     * Optional fields (including the physical store, `store_*`) are left out when empty (the platform treats `discount_code` as a coupon pattern),
+     * Optional fields (including the physical store, `store_*`, the order's `currency` and `refund_value`) are left out when empty (the platform treats `discount_code` as a coupon pattern),
      * except `email_address` and `phone`: the platform reads both keys without checking they exist,
      * so a phone-only or email-only order must still carry the empty one.
      *
@@ -113,7 +122,7 @@ class SaveOrder extends AbstractPayload
         $payload = $this->toArray();
         $optional = array_flip([
             'city', 'county', 'address', 'discount_code', 'order_status',
-            'store_id', 'store_name', 'store_city', 'store_country',
+            'store_id', 'store_name', 'store_city', 'store_country', 'currency', 'refund_value',
         ]);
 
         // A list, even when the caller's keys have gaps (a line dropped before sending).

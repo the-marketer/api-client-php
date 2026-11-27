@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace TheMarketer\ApiClient\DTO\Orders;
 
-use ReflectionMethod;
-use ReflectionParameter;
 use Symfony\Component\Validator\Constraints as Assert;
 use TheMarketer\ApiClient\Common\AbstractPayload;
 use TheMarketer\ApiClient\Common\PayloadArrayNormalizer;
@@ -85,13 +83,6 @@ class SaveOrderRetail extends AbstractPayload
             $data['products'] ?? [],
         );
 
-        $params = array_map(
-            static fn(ReflectionParameter $p): string => $p->getName(),
-            (new ReflectionMethod(static::class, '__construct'))->getParameters(),
-        );
-        $instance = new static(...array_intersect_key($data, array_flip($params)));
-        $instance->validate();
-
-        return $instance;
+        return parent::validateAndCreate($data);
     }
 }

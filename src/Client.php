@@ -6,6 +6,7 @@ namespace TheMarketer\ApiClient;
 
 use GuzzleHttp\Exception\GuzzleException;
 use JsonException;
+use NotificationService\Sdk\Internal\AccountApi;
 use NotificationService\Sdk\Internal\CampaignsApi;
 use NotificationService\Sdk\Internal\CouponsApi;
 use NotificationService\Sdk\Internal\CredentialsClient;
@@ -45,6 +46,8 @@ class Client
     private EventsApi $events;
 
     private ReportsApi $reports;
+
+    private AccountApi $account;
 
     private CredentialsClient $credentials;
 
@@ -95,6 +98,8 @@ class Client
         $this->events = new EventsApi($this->context);
 
         $this->reports = new ReportsApi($this->context);
+
+        $this->account = new AccountApi($this->context);
 
         $this->credentials = new CredentialsClient(
             $this->context
@@ -154,6 +159,11 @@ class Client
     public function reports(): ReportsApi
     {
         return $this->reports;
+    }
+
+    public function account(): AccountApi
+    {
+        return $this->account;
     }
 
     public function config(): Config

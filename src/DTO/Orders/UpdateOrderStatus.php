@@ -11,7 +11,8 @@ class UpdateOrderStatus extends AbstractPayload
 {
     public function __construct(
         #[Assert\NotBlank]
-        public string $order_number,
+        #[Assert\Regex(pattern: '/\S/', message: 'order_number must not be blank.')]
+        public int|string $order_number,
         #[Assert\NotBlank]
         public string $order_status,
     ) {}

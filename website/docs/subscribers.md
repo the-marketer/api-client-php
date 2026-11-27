@@ -19,15 +19,24 @@ Adds or updates a subscriber via the **synchronous** endpoint (`/add_subscriber_
 
 - `payload` (`array<string, mixed>`):
   - `email` (`string`, required)
-  - `add_tags` (`?string`)
+  - `add_tags` (`?string`): comma-separated tag names to add
+  - `remove_tags` (`?string`): comma-separated tag names to remove (never creates a tag)
   - `firstname` (`?string`)
   - `lastname` (`?string`)
+  - `name` (`?string`)
   - `phone` (`?string`)
   - `city` (`?string`)
+  - `county` (`?string`)
   - `country` (`?string`)
   - `birthday` (`?string`)
   - `channels` (`?string`)
-  - `attributes` (`?array`)
+  - `attributes` (`?array`): custom attributes, free-form keys
+  - `no_double_optin` (`0|1|bool|"0"|"1"|null`, sent as `0`/`1`): `1` = no double opt-in confirmation mail for this call
+  - `pretend_double_opt_in_is` (`0|1|bool|"0"|"1"|null`, sent as `0`/`1`, `0` is sent): overrides the account's double opt-in setting for this call; `0` subscribes the contact now even when the account has double opt-in on (with `no_double_optin=1` alone the contact stays unsubscribed under double opt-in)
+
+  - `source` (`?string`): `connector` = the change comes from the Shopify connector and is not sent back to the webhooks the connector provisioned (no echo); other account webhooks still fire
+
+Empty values are left out of the body (except `pretend_double_opt_in_is=0`). A key not listed here throws `ValidationException` (`unknown field(s): …`).
 
 **Response**
 
@@ -59,10 +68,11 @@ Adds subscribers in bulk.
 
 - `subscribers` (`list<array<string, mixed>>`): list of subscriber payloads.
   - each item uses the same fields as `addSubscriber` / `addSubscriberAsync` (see above).
+- `source` (`?string`): `connector` = no echo to the connector's webhooks; sent once, in the query string (the body is the list of rows).
 
 **Response**
 
-- `array`
+- `array`: `{result, queued, rejected, rejected_rows}` (`rejected_rows` are positions of rows the platform refused)
 
 ```php
 $result = $subscribersApi->addSubscriberBulk([
@@ -103,6 +113,39 @@ Anonymizes a subscriber email.
 
 ```php
 $result = $subscribersApi->anonymizeEmail('john@doe.com');
+```
+
+## `audienceStatistics`
+
+The email list's health counters. Uses **GET** `/audience-statistics`.
+
+**Input**
+
+- none
+
+**Response**
+
+- `array<string, int>`: `subscribed`, `active`, `inactive`, `bounced`, `cleaned`, `manually_unsubscribed`. A counter the platform fails to compute is left out (not sent as `0`).
+
+```php
+$stats = $subscribersApi->audienceStatistics();
+```
+
+## `contacts`
+
+One page of contacts, newest first, 15 per page. Uses **GET** `/contacts`.
+
+**Input**
+
+- `page` (`int`, default `1`, must be `>= 1`)
+- `search` (`?string`): part of the first name, last name, email or phone; trimmed, at most 200 characters, left out when empty
+
+**Response**
+
+- `array`: `{data, total, current_page, per_page}`; each contact has `email`, `firstname`, `lastname`, `phone`, `subscribed_to_email`, `subscribed_to_sms`.
+
+```php
+$page = $subscribersApi->contacts(1, 'ana');
 ```
 
 ## `deleteSubscriber`
@@ -166,7 +209,8 @@ Removes a subscriber (optionally by channels).
 **Input**
 
 - `email` (`string`, required)
-- `channels` (`?string`)
+- `channels` (`?string`): comma-separated channels (`email`, `sms`, `push`, `loyalty`); all when omitted
+- `source` (`?string`): `connector` = the unsubscribe is not echoed back to the connector's webhooks
 
 **Response**
 
@@ -174,6 +218,36 @@ Removes a subscriber (optionally by channels).
 
 ```php
 $result = $subscribersApi->removeSubscriber('john@doe.com', 'email');
+$result = $subscribersApi->removeSubscriber('john@doe.com', 'email', 'connector');
+```
+
+## `smsConsent`
+
+Sets a contact's SMS marketing consent, keyed by phone. Uses **POST** `/sms_consent`.
+
+**Input**
+
+- `phone` (`string`, required, at most 32 characters)
+- `state` (`string`, required): `subscribed` or `unsubscribed`
+- `email` (`?string`): a valid email, when known
+- `firstname`, `lastname` (`?string`, at most 255 characters)
+- `consentUpdatedAt` (`DateTimeInterface|string|null`, sent as `consent_updated_at`): when the consent changed at the source, ISO-8601 with an offset (`2026-11-27T10:15:00Z`); a `DateTimeInterface` is formatted for you. The platform ignores a change older than the consent it holds.
+- `source` (`?string`): e.g. `connector` (no echo to the connector's own webhooks)
+
+Blank optional values are left out of the body.
+
+**Response**
+
+- `array`: `{result: true, outcome}`; `outcome` is `created`, `subscribed`, `unsubscribed`, `unchanged`, `stale` (the platform holds a newer consent) or `missing` (no contact to unsubscribe).
+
+```php
+$result = $subscribersApi->smsConsent(
+    '+40700000001',
+    'subscribed',
+    email: 'ana@example.com',
+    consentUpdatedAt: '2026-11-27T10:15:00Z',
+    source: 'connector',
+);
 ```
 
 ## `statusSubscriber`

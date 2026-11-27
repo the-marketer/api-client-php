@@ -11,22 +11,43 @@ use TheMarketer\ApiClient\DTO\Orders\SaveOrder;
 use TheMarketer\ApiClient\DTO\Orders\SaveOrderRetail;
 use TheMarketer\ApiClient\DTO\Orders\UpdateFeedUrl;
 use TheMarketer\ApiClient\DTO\Orders\UpdateOrderStatus;
+use TheMarketer\ApiClient\Exception\ApiException;
+use TheMarketer\ApiClient\Exception\CustomerNotFoundException;
+use TheMarketer\ApiClient\Exception\MethodNotAllowedException;
+use TheMarketer\ApiClient\Exception\UnauthorizedException;
 use TheMarketer\ApiClient\Exception\ValidationException;
 
 class OrdersApi extends AbstractApi
 {
     /**
+     * `POST /update_order_status` with a JSON body `{order_number, order_status}`. The platform queues the change and
+     * answers `true` (decoded here as `[]`).
+     *
+     * Since 0.2.0 this is a POST (it was a GET, which the platform still serves but answers `true` even for an
+     * unknown order). On POST the platform checks the order first: an unknown `order_number` answers 404, which the
+     * REST layer throws as {@see CustomerNotFoundException} with the message `Order not found.` (the 404 mapping is
+     * shared by every endpoint). A field error answers 422 ({@see ApiException}, code 422).
+     *
+     * @param int|string $order_number the order's `number`, as sent to {@see saveOrder()} (compared as text)
+     *
+     * @return array<string, mixed>
+     *
+     * @throws CustomerNotFoundException the order does not exist
+     * @throws UnauthorizedException
+     * @throws MethodNotAllowedException
+     * @throws ApiException
+     * @throws ValidationException
      * @throws GuzzleException
      * @throws JsonException
      */
-    public function updateOrderStatus(string $order_number, string $order_status): array
+    public function updateOrderStatus(int|string $order_number, string $order_status): array
     {
         $dto = UpdateOrderStatus::validateAndCreate([
             'order_number' => $order_number,
             'order_status' => $order_status,
         ]);
 
-        return $this->context->rest->get('/update_order_status', $dto->toApiPayload());
+        return $this->context->rest->post('/update_order_status', $dto->toApiPayload());
     }
 
     /**

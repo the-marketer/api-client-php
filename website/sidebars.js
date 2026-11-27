@@ -33,6 +33,7 @@ const sidebars = {
         'loyalty',
         'reviews',
         'app-push',
+        'account',
       ],
     },
     'credentials-utilities',

@@ -12,10 +12,13 @@ class AddSubscriberBulk extends AbstractPayload
 {
     /**
      * @param list<SubscriberValidator> $subscribers
+     * @param string|null               $source      sent once, in the query string (the body is the list of rows)
      */
     public function __construct(
         #[Assert\Count(min: 1, minMessage: 'subscribers must not be empty.')]
         public array $subscribers,
+        #[Assert\Length(max: 64)]
+        public ?string $source = null,
     ) {}
 
     public static function validateAndCreate(array $data): static
@@ -27,7 +30,12 @@ class AddSubscriberBulk extends AbstractPayload
             $data['subscribers'] ?? [],
         );
 
-        $instance = new static($rows);
+        $source = $data['source'] ?? null;
+        if ($source !== null && !is_string($source)) {
+            throw new ValidationException('source: must be of type ?string.');
+        }
+
+        $instance = new static($rows, $source);
         $instance->validate();
 
         return $instance;
@@ -42,5 +50,13 @@ class AddSubscriberBulk extends AbstractPayload
             static fn(SubscriberValidator $row): array => $row->toApiPayload(),
             $this->subscribers,
         );
+    }
+
+    /**
+     * @return array<string, string> query parameters: `source` when there is one
+     */
+    public function toQuery(): array
+    {
+        return self::filterNonEmpty(['source' => $this->source]);
     }
 }

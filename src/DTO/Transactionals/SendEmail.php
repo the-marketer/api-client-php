@@ -38,7 +38,7 @@ class SendEmail extends AbstractPayload
             }
         }
 
-        $instance = new static(...$data);
+        $instance = static::construct($data);
         $instance->validate();
 
         return $instance;
