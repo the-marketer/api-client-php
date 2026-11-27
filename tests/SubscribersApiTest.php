@@ -734,4 +734,82 @@ final class SubscribersApiTest extends TestCase
         $body = json_decode((string) $this->lastRequest($container)->getBody(), true, 512, JSON_THROW_ON_ERROR);
         $this->assertSame(['email' => 'a@x.com', 'source' => 'connector'], $body);
     }
+
+    /**
+     * @throws GuzzleException
+     * @throws JsonException
+     */
+    public function testContactsSendsGetWithPageAndSearch(): void
+    {
+        $answer = ['data' => [['email' => 'a@x.com']], 'total' => 1, 'current_page' => 2, 'per_page' => 15];
+        [$api, $container] = $this->apiWithMockResponses(new Response(200, [], json_encode($answer)));
+
+        $this->assertSame($answer, $api->contacts(2, '  ana  '));
+
+        $request = $this->lastRequest($container);
+        $this->assertSame('GET', $request->getMethod());
+        $this->assertStringEndsWith('/api/v1/contacts', $request->getUri()->getPath());
+        parse_str($request->getUri()->getQuery(), $query);
+        $this->assertSame(['k' => self::MOCK_API_KEY, 'u' => self::MOCK_DOMAIN, 'page' => '2', 'search' => 'ana'], $query);
+        $this->assertSame('', (string) $request->getBody());
+    }
+
+    public function testContactsDefaultsToPageOneWithoutSearch(): void
+    {
+        [$api, $container] = $this->apiWithMockResponses(new Response(200, [], '{"data":[]}'));
+
+        $api->contacts(search: '   ');
+
+        parse_str($this->lastRequest($container)->getUri()->getQuery(), $query);
+        $this->assertSame('1', $query['page']);
+        $this->assertArrayNotHasKey('search', $query);
+    }
+
+    public function testContactsRejectsPageBelowOne(): void
+    {
+        [$api, $container] = $this->apiWithMockResponses();
+
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('page must be 1 or more.');
+
+        $api->contacts(0);
+    }
+
+    public function testContactsRejectsSearchLongerThan200Characters(): void
+    {
+        [$api] = $this->apiWithMockResponses();
+
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('search must be at most 200 characters.');
+
+        $api->contacts(1, str_repeat('ă', 201));
+    }
+
+    public function testContactsAcceptsSearchOf200MultibyteCharacters(): void
+    {
+        [$api, $container] = $this->apiWithMockResponses(new Response(200, [], '{"data":[]}'));
+
+        $api->contacts(1, str_repeat('ă', 200));
+
+        parse_str($this->lastRequest($container)->getUri()->getQuery(), $query);
+        $this->assertSame(str_repeat('ă', 200), $query['search']);
+    }
+
+    /**
+     * @throws GuzzleException
+     * @throws JsonException
+     */
+    public function testAudienceStatisticsSendsGet(): void
+    {
+        $answer = ['subscribed' => 10, 'active' => 7, 'inactive' => 3, 'bounced' => 1, 'cleaned' => 0, 'manually_unsubscribed' => 2];
+        [$api, $container] = $this->apiWithMockResponses(new Response(200, [], json_encode($answer)));
+
+        $this->assertSame($answer, $api->audienceStatistics());
+
+        $request = $this->lastRequest($container);
+        $this->assertSame('GET', $request->getMethod());
+        $this->assertStringEndsWith('/api/v1/audience-statistics', $request->getUri()->getPath());
+        parse_str($request->getUri()->getQuery(), $query);
+        $this->assertSame(['k' => self::MOCK_API_KEY, 'u' => self::MOCK_DOMAIN], $query);
+    }
 }

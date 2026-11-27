@@ -115,6 +115,39 @@ Anonymizes a subscriber email.
 $result = $subscribersApi->anonymizeEmail('john@doe.com');
 ```
 
+## `audienceStatistics`
+
+The email list's health counters. Uses **GET** `/audience-statistics`.
+
+**Input**
+
+- none
+
+**Response**
+
+- `array<string, int>`: `subscribed`, `active`, `inactive`, `bounced`, `cleaned`, `manually_unsubscribed`. A counter the platform fails to compute is left out (not sent as `0`).
+
+```php
+$stats = $subscribersApi->audienceStatistics();
+```
+
+## `contacts`
+
+One page of contacts, newest first, 15 per page. Uses **GET** `/contacts`.
+
+**Input**
+
+- `page` (`int`, default `1`, must be `>= 1`)
+- `search` (`?string`): part of the first name, last name, email or phone; trimmed, at most 200 characters, left out when empty
+
+**Response**
+
+- `array`: `{data, total, current_page, per_page}`; each contact has `email`, `firstname`, `lastname`, `phone`, `subscribed_to_email`, `subscribed_to_sms`.
+
+```php
+$page = $subscribersApi->contacts(1, 'ana');
+```
+
 ## `deleteSubscriber`
 
 Deletes a subscriber by `email` and/or `phone`.

@@ -10,6 +10,7 @@ use TheMarketer\ApiClient\Common\AbstractApi;
 use TheMarketer\ApiClient\DTO\Subscribers\AddSubscriberBulk;
 use TheMarketer\ApiClient\DTO\Subscribers\AddSubscriberByPhone;
 use TheMarketer\ApiClient\DTO\Subscribers\DeleteSubscriber;
+use TheMarketer\ApiClient\DTO\Subscribers\ListContacts;
 use TheMarketer\ApiClient\DTO\Subscribers\ListSubscribersDateRange;
 use TheMarketer\ApiClient\DTO\Subscribers\RemoveSubscriber;
 use TheMarketer\ApiClient\DTO\Subscribers\EmailValidator;
@@ -117,6 +118,49 @@ class SubscribersApi extends AbstractApi
     public function subscribersEvolution(): array
     {
         return $this->context->rest->get('/subscribers-evolution');
+    }
+
+    /**
+     * `GET /contacts`: one page of contacts, newest first (15 per page), each with `email`, `firstname`,
+     * `lastname`, `phone`, `subscribed_to_email` and `subscribed_to_sms`.
+     *
+     * @param int         $page   1 or more
+     * @param string|null $search part of the email, name or phone; trimmed, up to 200 characters, left out when empty
+     *
+     * @return array{data: list<array<string, mixed>>, total: int, current_page: int, per_page: int}
+     *
+     * @throws UnauthorizedException
+     * @throws CustomerNotFoundException
+     * @throws MethodNotAllowedException
+     * @throws ApiException
+     * @throws ValidationException
+     * @throws JsonException
+     * @throws GuzzleException
+     */
+    public function contacts(int $page = 1, ?string $search = null): array
+    {
+        $dto = ListContacts::validateAndCreate(['page' => $page, 'search' => $search]);
+
+        return $this->context->rest->get('/contacts', $dto->toApiPayload());
+    }
+
+    /**
+     * `GET /audience-statistics`: the email list's health counters, `subscribed`, `active`, `inactive`, `bounced`,
+     * `cleaned`, `manually_unsubscribed` (ints). A counter the platform fails to compute is left out, not sent as 0.
+     *
+     * @return array<string, int>
+     *
+     * @throws UnauthorizedException
+     * @throws CustomerNotFoundException
+     * @throws MethodNotAllowedException
+     * @throws ApiException
+     * @throws ValidationException
+     * @throws JsonException
+     * @throws GuzzleException
+     */
+    public function audienceStatistics(): array
+    {
+        return $this->context->rest->get('/audience-statistics');
     }
 
     /**
