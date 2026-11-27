@@ -29,6 +29,8 @@ class SubscriberValidator extends AbstractPayload
         public ?int $no_double_optin = null,
         #[Assert\Choice(choices: [0, 1], message: 'pretend_double_opt_in_is must be 0 or 1.')]
         public ?int $pretend_double_opt_in_is = null,
+        #[Assert\Length(max: 64)]
+        public ?string $source = null,
     ) {}
 
     /**
@@ -54,7 +56,8 @@ class SubscriberValidator extends AbstractPayload
      * Empty fields are left out, except `pretend_double_opt_in_is`, where `0` matters: the platform checks that
      * it is set, then reads it as the account's double opt-in setting for this call (`0` = subscribe now even when
      * the account has double opt-in on). `no_double_optin=1` only stops the confirmation mail. `add_tags` and
-     * `remove_tags` are comma-separated tag names.
+     * `remove_tags` are comma-separated tag names. `source=connector` tells the platform the change comes from the
+     * Shopify connector, so it is not sent back to the webhooks the connector provisioned (no echo).
      */
     public function toApiPayload(): array
     {
@@ -74,6 +77,7 @@ class SubscriberValidator extends AbstractPayload
                 'channels' => $this->channels,
                 'no_double_optin' => $this->no_double_optin,
                 'pretend_double_opt_in_is' => $this->pretend_double_opt_in_is,
+                'source' => $this->source,
             ]),
         );
 

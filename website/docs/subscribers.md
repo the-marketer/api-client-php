@@ -34,6 +34,8 @@ Adds or updates a subscriber via the **synchronous** endpoint (`/add_subscriber_
   - `no_double_optin` (`0|1|bool|"0"|"1"|null`, sent as `0`/`1`): `1` = no double opt-in confirmation mail for this call
   - `pretend_double_opt_in_is` (`0|1|bool|"0"|"1"|null`, sent as `0`/`1`, `0` is sent): overrides the account's double opt-in setting for this call; `0` subscribes the contact now even when the account has double opt-in on (with `no_double_optin=1` alone the contact stays unsubscribed under double opt-in)
 
+  - `source` (`?string`): `connector` = the change comes from the Shopify connector and is not sent back to the webhooks the connector provisioned (no echo); other account webhooks still fire
+
 Empty values are left out of the body (except `pretend_double_opt_in_is=0`). A key not listed here throws `ValidationException` (`unknown field(s): …`).
 
 **Response**
@@ -66,10 +68,11 @@ Adds subscribers in bulk.
 
 - `subscribers` (`list<array<string, mixed>>`): list of subscriber payloads.
   - each item uses the same fields as `addSubscriber` / `addSubscriberAsync` (see above).
+- `source` (`?string`): `connector` = no echo to the connector's webhooks; sent once, in the query string (the body is the list of rows).
 
 **Response**
 
-- `array`
+- `array`: `{result, queued, rejected, rejected_rows}` (`rejected_rows` are positions of rows the platform refused)
 
 ```php
 $result = $subscribersApi->addSubscriberBulk([
@@ -173,7 +176,8 @@ Removes a subscriber (optionally by channels).
 **Input**
 
 - `email` (`string`, required)
-- `channels` (`?string`)
+- `channels` (`?string`): comma-separated channels (`email`, `sms`, `push`, `loyalty`); all when omitted
+- `source` (`?string`): `connector` = the unsubscribe is not echoed back to the connector's webhooks
 
 **Response**
 
@@ -181,6 +185,7 @@ Removes a subscriber (optionally by channels).
 
 ```php
 $result = $subscribersApi->removeSubscriber('john@doe.com', 'email');
+$result = $subscribersApi->removeSubscriber('john@doe.com', 'email', 'connector');
 ```
 
 ## `statusSubscriber`

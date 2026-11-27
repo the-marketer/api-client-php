@@ -655,4 +655,83 @@ final class SubscribersApiTest extends TestCase
             $this->assertSame([], $container->requests);
         }
     }
+
+    /**
+     * @throws GuzzleException
+     * @throws JsonException
+     */
+    public function testSourceConnectorIsSentInTheBodyOfAddSubscriberAndAddSubscriberAsync(): void
+    {
+        [$api, $container] = $this->apiWithMockResponses(
+            new Response(200, [], '{"result":true}'),
+            new Response(200, [], '{"result":true}'),
+        );
+
+        $api->addSubscriber(['email' => 'a@x.com', 'source' => 'connector']);
+        $api->addSubscriberAsync(['email' => 'a@x.com', 'source' => 'connector']);
+
+        foreach ($container->requests as $request) {
+            $body = json_decode((string) $request->getBody(), true, 512, JSON_THROW_ON_ERROR);
+            $this->assertSame(['email' => 'a@x.com', 'source' => 'connector'], $body);
+        }
+        $this->assertStringEndsWith('/add_subscriber_sync', $container->requests[0]->getUri()->getPath());
+        $this->assertStringEndsWith('/add_subscriber', $container->requests[1]->getUri()->getPath());
+    }
+
+    /**
+     * @throws GuzzleException
+     * @throws JsonException
+     */
+    public function testAddSubscriberBulkSendsSourceOnceInTheQueryString(): void
+    {
+        [$api, $container] = $this->apiWithMockResponses(new Response(200, [], '{"result":true,"queued":2}'));
+
+        $api->addSubscriberBulk([['email' => 'a@x.com'], ['email' => 'b@x.com']], 'connector');
+
+        $request = $this->lastRequest($container);
+        parse_str($request->getUri()->getQuery(), $query);
+        $this->assertSame('connector', $query['source']);
+        $this->assertSame(self::MOCK_API_KEY, $query['k']);
+
+        $body = json_decode((string) $request->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame([['email' => 'a@x.com'], ['email' => 'b@x.com']], $body);
+    }
+
+    public function testAddSubscriberBulkWithoutSourceSendsNoSourceQuery(): void
+    {
+        [$api, $container] = $this->apiWithMockResponses(new Response(200, [], '{"result":true}'));
+
+        $api->addSubscriberBulk([['email' => 'a@x.com']]);
+
+        parse_str($this->lastRequest($container)->getUri()->getQuery(), $query);
+        $this->assertArrayNotHasKey('source', $query);
+    }
+
+    /**
+     * @throws GuzzleException
+     * @throws JsonException
+     */
+    public function testRemoveSubscriberSendsSourceInTheBody(): void
+    {
+        [$api, $container] = $this->apiWithMockResponses(new Response(200, [], '{"result":true}'));
+
+        $api->removeSubscriber('a@x.com', 'email', 'connector');
+
+        $body = json_decode((string) $this->lastRequest($container)->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame(['email' => 'a@x.com', 'channels' => 'email', 'source' => 'connector'], $body);
+    }
+
+    /**
+     * @throws GuzzleException
+     * @throws JsonException
+     */
+    public function testRemoveSubscriberSourceWithoutChannels(): void
+    {
+        [$api, $container] = $this->apiWithMockResponses(new Response(200, [], '{"result":true}'));
+
+        $api->removeSubscriber('a@x.com', source: 'connector');
+
+        $body = json_decode((string) $this->lastRequest($container)->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame(['email' => 'a@x.com', 'source' => 'connector'], $body);
+    }
 }

@@ -120,6 +120,10 @@ class SubscribersApi extends AbstractApi
     }
 
     /**
+     * `POST /add_subscriber` (queued). Same payload as {@see addSubscriber()}, including `source`.
+     *
+     * @param array<string, mixed> $payload
+     *
      * @throws UnauthorizedException
      * @throws CustomerNotFoundException
      * @throws MethodNotAllowedException
@@ -156,7 +160,12 @@ class SubscribersApi extends AbstractApi
     }
 
     /**
+     * `POST /add_subscriber_bulk`: the body is the list of rows (each validated like {@see addSubscriber()}).
+     * Answers `{result, queued, rejected, rejected_rows}`.
+     *
      * @param list<array<string, mixed>> $subscribers
+     * @param string|null                $source      `connector`: the changes are not echoed back to the connector's
+     *                                                own webhooks; sent once, in the query string
      *
      * @return array<string, mixed>
      *
@@ -168,14 +177,17 @@ class SubscribersApi extends AbstractApi
      * @throws JsonException
      * @throws GuzzleException
      */
-    public function addSubscriberBulk(array $subscribers): array
+    public function addSubscriberBulk(array $subscribers, ?string $source = null): array
     {
-        $dto = AddSubscriberBulk::validateAndCreate(['subscribers' => $subscribers]);
+        $dto = AddSubscriberBulk::validateAndCreate(['subscribers' => $subscribers, 'source' => $source]);
 
-        return $this->context->rest->post('/add_subscriber_bulk', $dto->toApiPayload());
+        return $this->context->rest->post('/add_subscriber_bulk', $dto->toApiPayload(), $dto->toQuery());
     }
 
     /**
+     * `POST /add_subscriber_sync`. Payload keys: see {@see SubscriberValidator}; `source` = `connector` means the
+     * change is not echoed back to the connector's own webhooks (the platform's only recognised value).
+     *
      * @param array<string, mixed> $payload
      *
      * @return array<string, mixed>
@@ -216,6 +228,9 @@ class SubscribersApi extends AbstractApi
     }
 
     /**
+     * @param string|null $channels comma-separated channels to unsubscribe from (`email`, `sms`, `push`, `loyalty`); all when null
+     * @param string|null $source   `connector`: the unsubscribe is not echoed back to the connector's own webhooks
+     *
      * @return array<string, mixed>
      *
      * @throws UnauthorizedException
@@ -226,11 +241,12 @@ class SubscribersApi extends AbstractApi
      * @throws GuzzleException
      * @throws JsonException
      */
-    public function removeSubscriber(string $email, ?string $channels = null): array
+    public function removeSubscriber(string $email, ?string $channels = null, ?string $source = null): array
     {
         $dto = RemoveSubscriber::validateAndCreate([
             'email' => $email,
             'channels' => $channels,
+            'source' => $source,
         ]);
 
         return $this->context->rest->post('/remove_subscriber', $dto->toApiPayload());
