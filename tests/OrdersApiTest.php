@@ -12,6 +12,7 @@ use GuzzleHttp\Psr7\Response;
 use NotificationService\Sdk\Internal\OrdersApi;
 use TheMarketer\ApiClient\Common\Config;
 use TheMarketer\ApiClient\DTO\Orders\SaveOrderProductLine;
+use TheMarketer\ApiClient\Exception\CustomerNotFoundException;
 use TheMarketer\ApiClient\Exception\ValidationException;
 
 final class OrdersApiTest extends TestCase
@@ -43,25 +44,59 @@ final class OrdersApiTest extends TestCase
      * @throws GuzzleException
      * @throws \JsonException
      */
-    public function testUpdateOrderStatusSendsGetWithQueryParams(): void
+    public function testUpdateOrderStatusSendsPostWithJsonBody(): void
     {
         [$api, $container] = $this->apiWithMockResponses(
-            new Response(200, [], '{"ok":true}'),
+            new Response(200, [], '1'),
         );
 
         $result = $api->updateOrderStatus('ORD-42', 'shipped');
 
-        $this->assertSame(['ok' => true], $result);
+        $this->assertSame([], $result);
 
         $request = $this->lastRequest($container);
-        $this->assertSame('GET', $request->getMethod());
-        $this->assertStringEndsWith('/update_order_status', $request->getUri()->getPath());
+        $this->assertSame('POST', $request->getMethod());
+        $this->assertStringEndsWith('/api/v1/update_order_status', $request->getUri()->getPath());
 
         parse_str($request->getUri()->getQuery(), $query);
-        $this->assertSame(self::MOCK_API_KEY, $query['k']);
-        $this->assertSame(self::MOCK_DOMAIN, $query['u']);
-        $this->assertSame('ORD-42', $query['order_number']);
-        $this->assertSame('shipped', $query['order_status']);
+        $this->assertSame(['k' => self::MOCK_API_KEY, 'u' => self::MOCK_DOMAIN], $query);
+
+        $body = json_decode((string) $request->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame(['order_number' => 'ORD-42', 'order_status' => 'shipped'], $body);
+    }
+
+    public function testUpdateOrderStatusSendsAnIntegerNumberAsGiven(): void
+    {
+        [$api, $container] = $this->apiWithMockResponses(new Response(200, [], '1'));
+
+        $api->updateOrderStatus(1001, 'shipped');
+
+        $body = json_decode((string) $this->lastRequest($container)->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame(1001, $body['order_number']);
+    }
+
+    public function testUpdateOrderStatusThrowsCustomerNotFoundForAnUnknownOrder(): void
+    {
+        [$api] = $this->apiWithMockResponses(
+            new Response(404, ['Content-Type' => 'application/json'], '{"message":"Order not found."}'),
+        );
+
+        try {
+            $api->updateOrderStatus('NOPE-1', 'shipped');
+            $this->fail('A 404 must throw.');
+        } catch (CustomerNotFoundException $e) {
+            $this->assertSame('Order not found.', $e->getMessage());
+            $this->assertSame(404, $e->getCode());
+        }
+    }
+
+    public function testUpdateOrderStatusThrowsWhenNumberBlank(): void
+    {
+        [$api] = $this->apiWithMockResponses();
+
+        $this->expectException(ValidationException::class);
+
+        $api->updateOrderStatus('  ', 'shipped');
     }
 
     /**
@@ -396,5 +431,84 @@ final class OrdersApiTest extends TestCase
         }
 
         $this->assertSame([], $container->requests);
+    }
+
+    /**
+     * @throws GuzzleException
+     * @throws \JsonException
+     */
+    public function testSaveOrderSendsCurrencyAndRefundValue(): void
+    {
+        [$api, $container] = $this->apiWithMockResponses(new Response(200, [], 'true'));
+
+        $api->saveOrder($this->minimalOrder(
+            [['product_id' => 7, 'price' => 10, 'quantity' => 1]],
+            ['currency' => 'RON', 'refund_value' => '12.5'],
+        ));
+
+        $body = json_decode((string) $this->lastRequest($container)->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame('RON', $body['currency']);
+        $this->assertSame(12.5, $body['refund_value']);
+    }
+
+    /**
+     * @throws GuzzleException
+     * @throws \JsonException
+     */
+    public function testSaveOrderSendsZeroRefundValueAndOmitsEmptyCurrency(): void
+    {
+        [$api, $container] = $this->apiWithMockResponses(new Response(200, [], 'true'));
+
+        $api->saveOrder($this->minimalOrder(
+            [['product_id' => 7, 'price' => 10, 'quantity' => 1]],
+            ['currency' => '', 'refund_value' => 0],
+        ));
+
+        $body = json_decode((string) $this->lastRequest($container)->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertArrayNotHasKey('currency', $body);
+        $this->assertEquals(0, $body['refund_value']);
+    }
+
+    public function testSaveOrderOmitsCurrencyAndRefundValueWhenNotGiven(): void
+    {
+        [$api, $container] = $this->apiWithMockResponses(new Response(200, [], 'true'));
+
+        $api->saveOrder($this->minimalOrder([['product_id' => 7, 'price' => 10, 'quantity' => 1]]));
+
+        $body = json_decode((string) $this->lastRequest($container)->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertArrayNotHasKey('currency', $body);
+        $this->assertArrayNotHasKey('refund_value', $body);
+    }
+
+    /**
+     * @return iterable<string, array{0: string}>
+     */
+    public static function invalidCurrencies(): iterable
+    {
+        yield 'lowercase' => ['ron'];
+        yield 'two letters' => ['RO'];
+        yield 'four letters' => ['EURO'];
+        yield 'symbol' => ['€'];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('invalidCurrencies')]
+    public function testSaveOrderRejectsInvalidCurrency(string $currency): void
+    {
+        [$api] = $this->apiWithMockResponses();
+
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('currency must be a 3-letter uppercase ISO 4217 code.');
+
+        $api->saveOrder($this->minimalOrder([['product_id' => 7, 'price' => 10, 'quantity' => 1]], ['currency' => $currency]));
+    }
+
+    public function testSaveOrderRejectsNegativeRefundValue(): void
+    {
+        [$api] = $this->apiWithMockResponses();
+
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('refund_value');
+
+        $api->saveOrder($this->minimalOrder([['product_id' => 7, 'price' => 10, 'quantity' => 1]], ['refund_value' => -1]));
     }
 }
