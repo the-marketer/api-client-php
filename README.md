@@ -142,7 +142,7 @@ Details about parameters: the files in `src/Api/*Api.php` and `src/DTO/**`. The 
 
 ### Campaigns — important notes
 
-- **`list()`** uses **POST** to `/campaigns/list`, with the body from `ListCampaign`.
+- **`list()`** uses **POST** to `/campaigns/list`, with the body from `ListCampaign`: `filters` is sent as an object (an array or a JSON object string; keys `search`, `type`, `start_date`, `status`, `send_at_from`, `send_at_to`), `page`/`limit` as ints.
 - **`create()`** requires a nested structure validated by `CreateCampaign`; for the **sender** it uses the keys **`name`**, **`sender`** (email), **`reply_to`** (not `sender_name` / `sender_email`).
 
 ### Reviews
@@ -159,7 +159,7 @@ Details about parameters: the files in `src/Api/*Api.php` and `src/DTO/**`. The 
 
 **Before the request (local validation)**
 
-- **`TheMarketer\ApiClient\Exception\ValidationException`** — missing `customerId` / `restKey` in the config, or messages from Symfony validation on the DTO.
+- **`TheMarketer\ApiClient\Exception\ValidationException`** — missing `customerId` / `restKey` in the config, messages from Symfony validation on the DTO, or a payload key the DTO does not know (`unknown field(s): foo, bar`; since 0.2.0 unknown keys are rejected instead of dropped silently).
 - Missing required arguments when building a DTO can lead to **`ArgumentCountError`** or **`TypeError`** before any network call.
 
 **After the request** (`ApiGateway` maps the HTTP status)

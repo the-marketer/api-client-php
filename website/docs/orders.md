@@ -58,10 +58,13 @@ Creates or syncs an order using the standard payload format.
     - `sale_price` (`?float`, omitted when empty) — the price paid per unit; the platform uses it instead of `price` when present
     - `quantity` (`int`, required)
     - `variation_sku` (`?string`, omitted when empty; not read by the platform)
+    - `variation` (`?array`, omitted when empty) — the variant bought, stored by the platform as sent:
+      - `id` (`int|string`, required inside `variation`)
+      - `sku` (`int|string|null`, omitted when empty)
 
 Leave `discount_code` out when there is no code: the platform uses it as a pattern on coupons, so a placeholder such as `-` matches real coupons.
 
-**Changed in 0.2.0:** `number` and line `product_id` are sent as given (a numeric string is no longer converted to `int`); line `product_id` accepts text (a SKU); `store_*` and line `sale_price` are new optional fields.
+**Changed in 0.2.0:** `number` and line `product_id` are sent as given (a numeric string is no longer converted to `int`); line `product_id` accepts text (a SKU); `store_*`, line `sale_price` and line `variation` are new optional fields. A key the DTO does not know (on the order, a line or a variation) throws `ValidationException` (`unknown field(s): …`) instead of being dropped.
 
 **Response**
 
@@ -86,7 +89,7 @@ $result = $ordersApi->saveOrder([
             'product_id' => 123,
             'price' => 99.99,
             'quantity' => 1,
-            'variation_sku' => 'SKU-123',
+            'variation' => ['id' => 'gid-123', 'sku' => 'SKU-123'],
         ],
     ],
 ]);

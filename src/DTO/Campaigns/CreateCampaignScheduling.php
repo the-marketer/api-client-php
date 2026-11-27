@@ -27,7 +27,7 @@ class CreateCampaignScheduling extends AbstractPayload
             $data['use_optimal_time'] = (int) $data['use_optimal_time'];
         }
 
-        $instance = new static(...$data);
+        $instance = static::construct($data);
         $instance->validate();
 
         return $instance;

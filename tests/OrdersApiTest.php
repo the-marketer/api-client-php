@@ -11,6 +11,7 @@ use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Psr7\Response;
 use NotificationService\Sdk\Internal\OrdersApi;
 use TheMarketer\ApiClient\Common\Config;
+use TheMarketer\ApiClient\DTO\Orders\SaveOrderProductLine;
 use TheMarketer\ApiClient\Exception\ValidationException;
 
 final class OrdersApiTest extends TestCase
@@ -301,5 +302,99 @@ final class OrdersApiTest extends TestCase
         $this->expectException(ValidationException::class);
 
         $api->updateFeedUrl('not-a-valid-url');
+    }
+
+    /**
+     * @param list<array<string, mixed>> $products
+     *
+     * @return array<string, mixed>
+     */
+    private function minimalOrder(array $products, array $extra = []): array
+    {
+        return [
+            'number' => 'EU-1',
+            'email_address' => 'buyer@example.com',
+            'firstname' => 'Ana',
+            'lastname' => 'Ion',
+            'discount_value' => 0,
+            'shipping' => 0,
+            'tax' => 0,
+            'total_value' => 10,
+            'products' => $products,
+        ] + $extra;
+    }
+
+    /**
+     * @throws GuzzleException
+     * @throws \JsonException
+     */
+    public function testSaveOrderKeepsLineVariation(): void
+    {
+        [$api, $container] = $this->apiWithMockResponses(new Response(200, [], 'true'));
+
+        $api->saveOrder($this->minimalOrder([
+            ['product_id' => 7, 'price' => 10, 'quantity' => 1, 'variation' => ['id' => 'gid-55', 'sku' => 'SKU-55']],
+            ['product_id' => 8, 'price' => 5, 'quantity' => 2, 'variation' => ['id' => 56]],
+            ['product_id' => 9, 'price' => 5, 'quantity' => 1],
+        ]));
+
+        $body = json_decode((string) $this->lastRequest($container)->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame(['id' => 'gid-55', 'sku' => 'SKU-55'], $body['products'][0]['variation']);
+        $this->assertSame(['id' => 56], $body['products'][1]['variation']);
+        $this->assertArrayNotHasKey('variation', $body['products'][2]);
+    }
+
+    public function testSaveOrderProductLineVariationSurvivesValidateAndCreate(): void
+    {
+        $line = SaveOrderProductLine::validateAndCreate([
+            'product_id' => 7, 'price' => 10, 'quantity' => 1, 'variation' => ['id' => 55, 'sku' => 'S'],
+        ]);
+
+        $this->assertSame(['id' => 55, 'sku' => 'S'], $line->toApiPayload()['variation']);
+    }
+
+    public function testSaveOrderRejectsVariationWithoutId(): void
+    {
+        [$api] = $this->apiWithMockResponses();
+
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('id');
+
+        $api->saveOrder($this->minimalOrder([
+            ['product_id' => 7, 'price' => 10, 'quantity' => 1, 'variation' => ['sku' => 'S']],
+        ]));
+    }
+
+    public function testSaveOrderRejectsVariationThatIsNotAnArray(): void
+    {
+        [$api] = $this->apiWithMockResponses();
+
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('variation must be an array.');
+
+        $api->saveOrder($this->minimalOrder([
+            ['product_id' => 7, 'price' => 10, 'quantity' => 1, 'variation' => 'S'],
+        ]));
+    }
+
+    public function testSaveOrderRejectsUnknownKeysOnOrderAndLine(): void
+    {
+        [$api, $container] = $this->apiWithMockResponses(new Response(200, [], 'true'));
+
+        try {
+            $api->saveOrder($this->minimalOrder([['product_id' => 7, 'price' => 10, 'quantity' => 1]], ['foo' => 1, 'bar' => 2]));
+            $this->fail('An unknown order key must throw.');
+        } catch (ValidationException $e) {
+            $this->assertSame('unknown field(s): foo, bar', $e->getMessage());
+        }
+
+        try {
+            $api->saveOrder($this->minimalOrder([['product_id' => 7, 'price' => 10, 'quantity' => 1, 'colour' => 'red']]));
+            $this->fail('An unknown line key must throw.');
+        } catch (ValidationException $e) {
+            $this->assertSame('unknown field(s): colour', $e->getMessage());
+        }
+
+        $this->assertSame([], $container->requests);
     }
 }
